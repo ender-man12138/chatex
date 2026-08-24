@@ -1,0 +1,388 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatEx</title>
+<style>
+:root {
+  --bg:#faf8ff;--bg-elevated:#fff;--bg-subtle:#f3edf9;--bg-hover:#ece4f7;
+  --accent:#b06cb3;--accent-light:#d4a5d0;--accent-glow:rgba(176,108,179,.12);--accent-soft:rgba(176,108,179,.07);
+  --text:#3a2d4a;--text-mid:#7a6b8a;--text-faint:#b0a3be;
+  --border:#e8dff5;--border-strong:#d4c4e8;
+  --success:#7bc6a3;--danger:#e8767c;--warning:#f5c77e;
+  --sidebar-w:272px;--header-h:56px;
+  --radius-sm:10px;--radius-md:16px;--radius-lg:22px;
+  --shadow-sm:0 1px 3px rgba(80,40,120,.06),0 1px 2px rgba(80,40,120,.04);
+  --shadow-md:0 4px 16px rgba(80,40,120,.08),0 2px 4px rgba(80,40,120,.04);
+  --shadow-lg:0 8px 32px rgba(80,40,120,.12);
+  --transition:180ms cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.5;display:flex;-webkit-font-smoothing:antialiased}
+::selection{background:var(--accent-light);color:#fff}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:9px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent-light)}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,textarea{font-family:inherit}
+
+/* Sidebar */
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg-elevated);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;box-shadow:var(--shadow-sm);z-index:10}
+.sidebar-header{padding:18px 18px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.sidebar-logo{display:flex;align-items:center;gap:8px}
+.sidebar-logo .logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px rgba(176,108,179,.3)}
+.sidebar-logo h1{font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.2px}
+#new-chat-btn{width:32px;height:32px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);border:none;color:#fff;border-radius:var(--radius-sm);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform var(--transition),box-shadow var(--transition);box-shadow:0 2px 8px rgba(176,108,179,.25)}
+#new-chat-btn:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(176,108,179,.35)}
+#new-chat-btn:active{transform:translateY(0)}
+.sidebar-conv-list{flex:1;overflow-y:auto;padding:10px 10px 6px}
+.conv-item{padding:11px 12px;border-radius:var(--radius-md);cursor:pointer;margin-bottom:3px;display:flex;align-items:center;justify-content:space-between;transition:background var(--transition);position:relative}
+.conv-item:hover{background:var(--bg-hover)}
+.conv-item.active{background:var(--accent-glow);box-shadow:inset 3px 0 0 var(--accent)}
+.conv-info{flex:1;min-width:0}
+.conv-title{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv-item.active .conv-title{color:var(--accent)}
+.conv-meta{font-size:11px;color:var(--text-faint);margin-top:2px}
+.conv-delete{opacity:0;background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:var(--radius-sm);transition:all var(--transition);line-height:1}
+.conv-item:hover .conv-delete{opacity:1}
+.conv-delete:hover{color:var(--danger);background:rgba(232,118,124,.08)}
+.sidebar-footer{padding:12px 18px;border-top:1px solid var(--border);font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:8px}
+#server-dot{width:7px;height:7px;border-radius:50%;background:var(--danger);flex-shrink:0;transition:background var(--transition)}
+#server-dot.ok{background:var(--success);box-shadow:0 0 6px rgba(123,198,163,.4)}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;height:100vh;min-width:0;background:var(--bg)}
+.main-header{height:var(--header-h);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:10px;background:var(--bg-elevated);box-shadow:var(--shadow-sm)}
+.mode-tabs{display:flex;gap:3px;background:var(--bg-subtle);padding:3px;border-radius:var(--radius-sm);flex-shrink:0}
+.tab-btn{background:none;border:none;color:var(--text-mid);font-size:12px;font-weight:500;padding:5px 14px;border-radius:8px;cursor:pointer;transition:all var(--transition);white-space:nowrap}
+.tab-btn:hover{color:var(--accent)}
+.tab-btn.active{background:var(--bg-elevated);color:var(--accent);box-shadow:var(--shadow-sm)}
+#current-title{font-size:14px;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#clear-chat-btn{background:var(--bg-subtle);border:1px solid var(--border);color:var(--text-mid);font-size:12px;padding:5px 14px;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--transition)}
+#clear-chat-btn:hover{border-color:var(--accent-light);color:var(--accent);background:var(--accent-soft)}
+#create-ex-btn{background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;font-size:12px;font-weight:600;padding:5px 14px;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--transition);box-shadow:0 2px 8px rgba(176,108,179,.25);white-space:nowrap}
+#create-ex-btn:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(176,108,179,.35)}
+
+/* Messages */
+.messages{flex:1;overflow-y:auto;padding:24px 20px;display:flex;flex-direction:column;gap:18px;background:var(--bg)}
+.msg-row{display:flex;gap:10px;max-width:76%;align-items:flex-end}
+.msg-row.user{align-self:flex-end;flex-direction:row-reverse}
+.msg-row.ai{align-self:flex-start}
+.avatar{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.msg-row.user .avatar{background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;box-shadow:0 2px 8px rgba(176,108,179,.25)}
+.msg-row.ai .avatar{background:var(--bg-subtle);border:1px solid var(--border);color:var(--accent)}
+.bubble{padding:10px 14px;border-radius:16px;font-size:13.5px;line-height:1.6;max-width:100%;word-break:break-word}
+.msg-row.user .bubble{background:linear-gradient(135deg,var(--accent) 0%,#c48cc4 100%);color:#fff;border-bottom-right-radius:6px;box-shadow:0 2px 10px rgba(176,108,179,.2)}
+.msg-row.ai .bubble{background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:6px;box-shadow:var(--shadow-sm)}
+.msg-row.ai .bubble strong{color:var(--accent)}
+.typing-indicator{display:flex;gap:4px;padding:4px 0;align-items:center}
+.typing-indicator span{width:6px;height:6px;background:var(--accent-light);border-radius:50%;animation:typing 1.2s infinite}
+.typing-indicator span:nth-child(2){animation-delay:.2s}
+.typing-indicator span:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-4px);opacity:1}}
+#empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-faint);gap:12px}
+#empty-state .empty-icon{font-size:48px;opacity:.3}
+#empty-state p{font-size:13px}
+
+/* Input */
+.input-bar{border-top:1px solid var(--border);padding:14px 20px;background:var(--bg-elevated);display:flex;gap:10px;align-items:flex-end}
+#chat-input{flex:1;resize:none;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 14px;font-size:14px;line-height:1.5;background:var(--bg);color:var(--text);transition:border-color var(--transition);max-height:120px}
+#chat-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+#send-btn{width:40px;height:40px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);border:none;color:#fff;border-radius:var(--radius-sm);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--transition);box-shadow:0 2px 8px rgba(176,108,179,.25);flex-shrink:0}
+#send-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 14px rgba(176,108,179,.35)}
+#send-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:#fff;padding:10px 20px;border-radius:var(--radius-md);font-size:13px;opacity:0;transition:all 300ms ease;z-index:1000;pointer-events:none;box-shadow:var(--shadow-lg)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(58,45,74,.4);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg-elevated);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:520px;max-height:90vh;overflow-y:auto;animation:modalIn 200ms ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h2{font-size:16px;font-weight:700;color:var(--text)}
+.modal-close{width:28px;height:28px;border-radius:50%;background:var(--bg-subtle);color:var(--text-mid);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--transition)}
+.modal-close:hover{background:var(--danger);color:#fff}
+.modal-body{padding:20px 24px}
+.modal-footer{padding:16px 24px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+
+/* Form */
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--text-mid);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.form-input{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--bg);color:var(--text);transition:all var(--transition)}
+.form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.form-textarea{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--bg);color:var(--text);transition:all var(--transition);resize:vertical;min-height:100px;font-family:inherit;line-height:1.5}
+.form-textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.form-hint{font-size:11px;color:var(--text-faint);margin-top:4px}
+
+/* Buttons */
+.btn{padding:8px 20px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;transition:all var(--transition);border:1px solid transparent}
+.btn-primary{background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;box-shadow:0 2px 8px rgba(176,108,179,.25)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(176,108,179,.35)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-secondary{background:var(--bg-subtle);border-color:var(--border);color:var(--text-mid)}
+.btn-secondary:hover{border-color:var(--accent-light);color:var(--accent);background:var(--accent-soft)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{opacity:.9}
+.btn-full{width:100%}
+
+/* Step indicator */
+.step-indicator{display:flex;gap:6px;margin-bottom:20px}
+.step-dot-wrap{flex:1;text-align:center}
+.step-dot{width:100%;height:4px;border-radius:2px;background:var(--border);transition:background var(--transition)}
+.step-dot.active{background:var(--accent)}
+.step-dot.done{background:var(--success)}
+.step-label{font-size:11px;color:var(--text-faint);margin-top:4px}
+
+/* File drop */
+.drop-zone{border:2px dashed var(--border-strong);border-radius:var(--radius-md);padding:24px;text-align:center;cursor:pointer;transition:all var(--transition);margin-bottom:12px}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);background:var(--accent-soft)}
+.drop-zone-icon{font-size:28px;margin-bottom:8px}
+.drop-zone-text{font-size:13px;color:var(--text-mid)}
+.drop-zone-hint{font-size:11px;color:var(--text-faint);margin-top:4px}
+#analyze-file-input{display:none}
+.file-info{font-size:12px;color:var(--accent);margin-top:6px;display:flex;align-items:center;gap:6px}
+
+/* Analysis progress */
+.analyze-progress{display:none;padding:16px 0}
+.analyze-progress.active{display:block}
+.progress-step{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--text-mid)}
+.progress-step .icon{width:20px;text-align:center;flex-shrink:0}
+.progress-step.done .icon{color:var(--success)}
+.progress-step.active .icon{color:var(--accent);animation:typing 1s infinite}
+.progress-step .bar{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.progress-step .bar-fill{height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .5s ease}
+.progress-step.done .bar-fill{width:100%;background:var(--success)}
+
+/* Skill panel */
+.skill-panel{width:340px;min-width:340px;background:var(--bg-elevated);border-left:1px solid var(--border);display:flex;flex-direction:column;height:100vh;overflow:hidden;transition:width var(--transition),min-width var(--transition)}
+.skill-panel.collapsed{width:0;min-width:0;border:none;overflow:hidden}
+.skill-panel-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.skill-panel-header h3{font-size:14px;font-weight:700;color:var(--text)}
+.skill-panel-body{flex:1;overflow-y:auto;padding:16px}
+
+.skills-list{display:flex;flex-direction:column;gap:6px}
+.skill-card{padding:12px 14px;border-radius:var(--radius-md);border:1px solid var(--border);cursor:pointer;transition:all var(--transition);background:var(--bg)}
+.skill-card:hover{border-color:var(--accent-light);background:var(--bg-hover)}
+.skill-card.active{border-color:var(--accent);background:var(--accent-glow);box-shadow:inset 3px 0 0 var(--accent)}
+.skill-card-name{font-size:13px;font-weight:600;color:var(--text)}
+.skill-card-meta{font-size:11px;color:var(--text-faint);margin-top:2px;display:flex;align-items:center;gap:8px}
+.skill-card-status{font-size:10px;padding:1px 6px;border-radius:20px;font-weight:600}
+.skill-card-status.ready{background:rgba(123,198,163,.15);color:var(--success)}
+.skill-card-status.incomplete{background:rgba(245,199,126,.15);color:var(--warning)}
+.skill-card-status.empty{background:rgba(176,163,190,.15);color:var(--text-faint)}
+.skill-card-source{font-size:10px;padding:1px 6px;border-radius:20px;font-weight:600;margin-left:auto}
+.skill-card-source.local{background:rgba(123,198,163,.15);color:var(--success)}
+.skill-card-source.cloud{background:rgba(176,108,179,.15);color:var(--accent)}
+.skills-empty{text-align:center;padding:32px 16px;color:var(--text-faint)}
+.skills-empty-icon{font-size:32px;margin-bottom:8px;opacity:.4}
+.skills-empty-text{font-size:12px;line-height:1.6}
+
+.skill-detail-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.skill-detail-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;box-shadow:0 2px 10px rgba(176,108,179,.3)}
+.skill-detail-info{flex:1;min-width:0}
+.skill-detail-name{font-size:15px;font-weight:700;color:var(--text)}
+.skill-detail-summary{font-size:12px;color:var(--text-mid);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.skill-detail-version{font-size:10px;color:var(--text-faint);margin-top:2px}
+.skill-detail-actions{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.skill-action-btn{padding:7px 12px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;transition:all var(--transition);border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-mid);text-align:center}
+.skill-action-btn:hover{border-color:var(--accent-light);color:var(--accent);background:var(--accent-soft)}
+.skill-action-btn.danger:hover{border-color:var(--danger);color:var(--danger);background:rgba(232,118,124,.08)}
+.skill-action-btn:disabled{opacity:.4;cursor:not-allowed}
+.skill-section{margin-bottom:12px;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.skill-section-header{padding:8px 12px;background:var(--bg-subtle);font-size:12px;font-weight:700;color:var(--text-mid);display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)}
+.skill-section-body{padding:10px 12px;font-size:12px;line-height:1.6;color:var(--text);white-space:pre-wrap;max-height:200px;overflow-y:auto;background:var(--bg)}
+.skill-section-empty{font-size:12px;color:var(--text-faint);font-style:italic}
+.detail-tabs{display:flex;gap:2px;background:var(--bg-subtle);padding:3px;border-radius:var(--radius-sm);margin-bottom:12px}
+.detail-tab{flex:1;padding:6px 8px;border-radius:8px;font-size:11px;font-weight:600;color:var(--text-mid);cursor:pointer;transition:all var(--transition);text-align:center}
+.detail-tab:hover{color:var(--accent)}
+.detail-tab.active{background:var(--bg-elevated);color:var(--accent);box-shadow:var(--shadow-sm)}
+.detail-tab-content{display:none}
+.detail-tab-content.active{display:block}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">
+      <div class="logo-icon">x</div>
+      <h1>ChatEx</h1>
+    </div>
+    <button id="new-chat-btn" title="新建对话">+</button>
+  </div>
+  <div class="sidebar-conv-list" id="conv-list"></div>
+  <div class="sidebar-footer">
+    <span id="server-dot"></span>
+    <span id="server-text">连接中...</span>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="main-header">
+    <div class="mode-tabs">
+      <button class="tab-btn active" data-mode="chat" onclick="switchMode('chat')">Chat</button>
+      <button class="tab-btn" data-mode="skill" onclick="switchMode('skill')">Skills</button>
+    </div>
+    <span id="current-title">新建对话</span>
+    <button id="clear-chat-btn" onclick="clearChat()">清空</button>
+    <button id="create-ex-btn" onclick="openIntakeModal()">+ 创建前任</button>
+  </div>
+  <div class="messages" id="messages">
+    <div id="empty-state">
+      <div class="empty-icon">x</div>
+      <p>开始一段对话，或创建一位前任</p>
+    </div>
+  </div>
+  <div class="input-bar">
+    <textarea id="chat-input" rows="1" placeholder="输入消息... (Enter 发送，Shift+Enter 换行)"></textarea>
+    <button id="send-btn" onclick="sendMessage()">></button>
+  </div>
+</div>
+
+<!-- Skill Panel -->
+<div class="skill-panel collapsed" id="skill-panel">
+  <div class="skill-panel-header">
+    <h3>前任 Skills</h3>
+    <button class="modal-close" onclick="toggleSkillPanel()">x</button>
+  </div>
+  <div class="skill-panel-body">
+    <div class="skills-list" id="skills-list"></div>
+    <div id="skill-detail-panel"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Intake Wizard Modal -->
+<div class="modal-overlay" id="intake-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="intake-modal-title">创建一位前任</h2>
+      <button class="modal-close" onclick="closeIntakeModal()">x</button>
+    </div>
+    <div class="modal-body">
+      <div class="step-indicator">
+        <div class="step-dot-wrap"><div class="step-dot active" id="step-dot-1"></div><div class="step-label">花名</div></div>
+        <div class="step-dot-wrap"><div class="step-dot" id="step-dot-2"></div><div class="step-label">简介</div></div>
+        <div class="step-dot-wrap"><div class="step-dot" id="step-dot-3"></div><div class="step-label">性格</div></div>
+      </div>
+      <div class="step-content active" id="intake-step-1">
+        <div class="form-group">
+          <label class="form-label">花名 / 代号</label>
+          <input class="form-input" id="intake-name" placeholder="比如：小远 / 那个谁 / moon" maxlength="50">
+          <div class="form-hint">不需要真名，昵称、备注名、代号都可以</div>
+        </div>
+      </div>
+      <div class="step-content" id="intake-step-2">
+        <div class="form-group">
+          <label class="form-label">基本信息</label>
+          <textarea class="form-textarea" id="intake-summary" placeholder="一句话介绍一下？&#10;比如：在一起两年分手半年 互联网产品经理 上海&#10;大学四年异地 毕业分的" rows="3"></textarea>
+          <div class="form-hint">可以包括：在一起多久、分手多久、做什么的、怎么认识的。跳过也行</div>
+        </div>
+      </div>
+      <div class="step-content" id="intake-step-3">
+        <div class="form-group">
+          <label class="form-label">性格画像</label>
+          <textarea class="form-textarea" id="intake-personality" placeholder="用一句话描述ta的性格？&#10;比如：ENFP 双子座 话很多 永远在社交 但深夜会突然emo&#10;INTJ 处女座 完美主义 嘴硬心软 吵架从不先低头" rows="3"></textarea>
+          <div class="form-hint">MBTI、星座、性格标签、你对ta的印象。跳过也行</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="intake-prev-btn" onclick="intakePrevStep()" style="display:none">上一步</button>
+      <button class="btn btn-primary" id="intake-next-btn" onclick="intakeNextStep()">下一步</button>
+    </div>
+  </div>
+</div>
+
+<!-- Analyze Modal -->
+<div class="modal-overlay" id="analyze-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="analyze-modal-title">导入材料 生成记忆</h2>
+      <button class="modal-close" onclick="closeAnalyzeModal()">x</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">材料来源</label>
+        <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn btn-secondary source-btn active" data-source="text" onclick="setSource('text',this)">文字</button>
+          <button class="btn btn-secondary source-btn" data-source="wechat" onclick="setSource('wechat',this)">微信导出</button>
+          <button class="btn btn-secondary source-btn" data-source="qq" onclick="setSource('qq',this)">QQ导出</button>
+          <button class="btn btn-secondary source-btn" data-source="social" onclick="setSource('social',this)">社交媒体</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">上传文件（可选）</label>
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('analyze-file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleFileDrop(event)">
+          <div class="drop-zone-icon">folder</div>
+          <div class="drop-zone-text">点击或拖拽文件到此处</div>
+          <div class="drop-zone-hint">支持 txt / html / json / csv（微信/QQ 导出格式）</div>
+        </div>
+        <input type="file" id="analyze-file-input" accept=".txt,.html,.htm,.json,.csv,.db,.sqlite" onchange="handleFileSelect(event)">
+        <div class="file-info" id="file-info" style="display:none"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">原始材料</label>
+        <textarea class="form-textarea" id="analyze-material" rows="8" placeholder="粘贴聊天记录、朋友圈内容、或者描述你们的故事..."></textarea>
+        <div class="form-hint">材料越丰富，生成的记忆越真实。可以留空只依赖基础信息。</div>
+      </div>
+      <div class="analyze-progress" id="analyze-progress">
+        <div class="progress-step" id="prog-1"><span class="icon">o</span><span>分析关系记忆...</span><div class="bar"><div class="bar-fill" id="bar-1"></div></div></div>
+        <div class="progress-step" id="prog-2"><span class="icon">o</span><span>构建人物性格...</span><div class="bar"><div class="bar-fill" id="bar-2"></div></div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAnalyzeModal()">取消</button>
+      <button class="btn btn-primary" id="analyze-run-btn" onclick="runAnalyzeCurrent()">开始分析</button>
+    </div>
+  </div>
+</div>
+
+<!-- Correction Modal -->
+<div class="modal-overlay" id="correction-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>纠正记忆</h2>
+      <button class="modal-close" onclick="closeCorrectionModal()">x</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">纠正层级</label>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary corr-layer-btn active" data-layer="memory" onclick="setCorrLayer('memory',this)">关系记忆</button>
+          <button class="btn btn-secondary corr-layer-btn" data-layer="persona" onclick="setCorrLayer('persona',this)">人物性格</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">当前描述（被纠正的内容）</label>
+        <textarea class="form-textarea" id="corr-original" rows="2" placeholder="记忆中当前的描述..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">纠正为</label>
+        <textarea class="form-textarea" id="corr-correction" rows="2" placeholder="正确的描述..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">你的原话（证据）</label>
+        <input class="form-input" id="corr-note" placeholder="你当时是怎么说的？">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeCorrectionModal()">取消</button>
+      <button class="btn btn-primary" onclick="applyManualCorrection()">应用纠正</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js?v=1"></script>
+</body>
+</html>

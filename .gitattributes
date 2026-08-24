@@ -1,0 +1,12 @@
+﻿# ============================================
+# Git LFS 大文件跟踪规则
+# ============================================
+
+# 模型文件：GGUF 格式，约 1.2 GB
+*.gguf    filter=lfs diff=lfs merge=lfs -text
+
+# 内嵌 Python 3.12 便携版目录（约 28 MB）
+python/**    filter=lfs diff=lfs merge=lfs -text
+
+# llama.cpp 推理引擎目录（约 45 MB）
+llama/**    filter=lfs diff=lfs merge=lfs -text
