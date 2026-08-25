@@ -1,0 +1,100 @@
+L57: [后端已连接] ctx="extContent=d.llama==='ready'?'后端已连接':'后端运行中(llama未就绪)';}"
+L57: [后端运行中] ctx="nt=d.llama==='ready'?'后端已连接':'后端运行中(llama未就绪)';}"
+L57: [未就绪] ctx="=='ready'?'后端已连接':'后端运行中(llama未就绪)';}"
+L59: [后端未连接] ctx="e='';$statusText.textContent='后端未连接';}"
+L63: [后端未连接] ctx="e='';$statusText.textContent='后端未连接';}"
+L95: [暂无对话] ctx='--text-muted);font-size:12px">暂无对话</div>\';return;}'
+L103: [条消息] ctx='onv-meta\'>"+c.message_count+" 条消息?"+fmtTime(c.updated_at)+"</di'
+L103: [删除] ctx='id=\'"+escHtml(c.id)+"\' title=\'删除\'>x</button>";'
+L137: [瀵硅瘽] ctx="itle.textContent=data.title||'瀵硅瘽';"
+L149: [新建对话] ctx="nvId=null;$title.textContent='新建对话';"
+L171: [新建对话] ctx="nvId=null;$title.textContent='新建对话';"
+L195: [浣] ctx=" const initial=role==='user'?'浣?:(currentSkillSlug?currentSki"
+L239: [鍙戦] ctx="    showToast('鍙戦€佸け璐ワ細'+err.message);console.e"
+L239: [佸] ctx="    showToast('鍙戦€佸け璐ワ細'+err.message);console.err"
+L239: [璐] ctx="    showToast('鍙戦€佸け璐ワ細'+err.message);console.error"
+L239: [細] ctx="    showToast('鍙戦€佸け璐ワ細'+err.message);console.error(e"
+L261: [杩樻病鏈夊墠浠] ctx='div class="skills-empty-text">杩樻病鏈夊墠浠?Skill<br>鐐瑰嚮涓婃柟鍒涘缓鍓嶄换寮€濮?/div'
+L261: [鐐瑰嚮涓婃柟鍒涘缓鍓嶄换寮] ctx='-empty-text">杩樻病鏈夊墠浠?Skill<br>鐐瑰嚮涓婃柟鍒涘缓鍓嶄换寮€濮?/div></div>\';return;'
+L261: [濮] ctx="樻病鏈夊墠浠?Skill<br>鐐瑰嚮涓婃柟鍒涘缓鍓嶄换寮€濮?/div></div>';return;"
+L265: [灏辩华] ctx='\':\'empty\')+\'">\'+(s.has_skill?\'灏辩华\':s.has_memory?\'閮ㄥ垎\':\'鏈\ue044紑濮?)+\''
+L265: [閮] ctx="has_skill?'灏辩华':s.has_memory?'閮ㄥ垎':'鏈\ue044紑濮?)+'</span><span clas"
+L265: [垎] ctx="s_skill?'灏辩华':s.has_memory?'閮ㄥ垎':'鏈\ue044紑濮?)+'</span><span class="
+L265: [鏈] ctx='ill?\'灏辩华\':s.has_memory?\'閮ㄥ垎\':\'鏈\ue044紑濮?)+\'</span><span class="ski'
+L265: [紑濮] ctx='l?\'灏辩华\':s.has_memory?\'閮ㄥ垎\':\'鏈\ue044紑濮?)+\'</span><span class="skill-'
+L265: [鏈] ctx="'+(s.source==='import'?'API':'鏈\ue100湴')+'</span></div></div>').jo"
+L265: [湴] ctx="(s.source==='import'?'API':'鏈\ue100湴')+'</span></div></div>').join"
+L295: [尚未生成] ctx='v class="skill-section-empty">尚未生成</div>\';'
+L297: [尚未生成] ctx='v class="skill-section-empty">尚未生成</div>\';'
+L299: [尚未生成] ctx='v class="skill-section-empty">尚未生成</div>\';'
+L303: [鏆傛棤绠] ctx='+escHtml(s.profile?.summary||\'鏆傛棤绠€浠?)+\'</div><div class="skill-'
+L303: [浠] ctx='tml(s.profile?.summary||\'鏆傛棤绠€浠?)+\'</div><div class="skill-de'
+L303: [鍒涘缓浜] ctx=' class="skill-detail-version">鍒涘缓浜?\'+s.created_at?.slice(0,10)+\''
+L303: [鏈] ctx='\'+(s.source==="import"?"API":"鏈\ue100湴")+\'</span></div></div></div'
+L303: [湴] ctx='(s.source==="import"?"API":"鏈\ue100湴")+\'</span></div></div></div>\''
+L307: [鑱婂] ctx='abled style="opacity:0.4"\')+\'>鑱婂ぉ: \'+escHtml(s.name||s.slug)+\''
+L309: [瀵煎叆鏉愭枡鍒嗘瀽] ctx='l(\\\\\'\'+escHtml(s.slug)+\'\\\\\')">瀵煎叆鏉愭枡鍒嗘瀽</button>\'+'
+L311: [绾犳] ctx='ed style="opacity:0.4"\':\'\')+\'>绾犳\ue11c璁板繂</button>\'+'
+L311: [璁板繂] ctx='style="opacity:0.4"\':\'\')+\'>绾犳\ue11c璁板繂</button>\'+'
+L313: [删除] ctx='l(\\\\\'\'+escHtml(s.slug)+\'\\\\\')">删除</button>\'+'
+L321: [关系记忆] ctx='chDetailTab(\\\'memory\\\',this)">关系记忆</div>\'+'
+L323: [人物性格] ctx='hDetailTab(\\\'persona\\\',this)">人物性格</div>\'+'
+L337: [杩樻病鏈夎] ctx='dding:20px;text-align:center">杩樻病鏈夎\ue187蹇嗘暟鎹?br><span style="font-siz'
+L337: [蹇嗘暟鎹] ctx='20px;text-align:center">杩樻病鏈夎\ue187蹇嗘暟鎹?br><span style="font-size:11p'
+L337: [鐐瑰嚮瀵煎叆鏉愭枡鍒嗘瀽寮] ctx='><span style="font-size:11px">鐐瑰嚮瀵煎叆鏉愭枡鍒嗘瀽寮€濮嬬敓鎴?/span></div></div>\';'
+L337: [濮嬬敓鎴] ctx='font-size:11px">鐐瑰嚮瀵煎叆鏉愭枡鍒嗘瀽寮€濮嬬敓鎴?/span></div></div>\';'
+L371: [纭] ctx="  if(!confirm('纭\ue1bc畾瑕佸垹闄?Skill銆?+slug+'銆嶅悧锛熸\ue11d鎿嶄綔"
+L371: [畾瑕佸垹闄] ctx="  if(!confirm('纭\ue1bc畾瑕佸垹闄?Skill銆?+slug+'銆嶅悧锛熸\ue11d鎿嶄綔涓嶅彲鎭㈠\ue632"
+L371: [銆] ctx="  if(!confirm('纭\ue1bc畾瑕佸垹闄?Skill銆?+slug+'銆嶅悧锛熸\ue11d鎿嶄綔涓嶅彲鎭㈠\ue632銆?))ret"
+L371: [銆嶅悧锛熸] ctx="onfirm('纭\ue1bc畾瑕佸垹闄?Skill銆?+slug+'銆嶅悧锛熸\ue11d鎿嶄綔涓嶅彲鎭㈠\ue632銆?))return;"
+L371: [鎿嶄綔涓嶅彲鎭] ctx="('纭\ue1bc畾瑕佸垹闄?Skill銆?+slug+'銆嶅悧锛熸\ue11d鎿嶄綔涓嶅彲鎭㈠\ue632銆?))return;"
+L371: [銆] ctx="?Skill銆?+slug+'銆嶅悧锛熸\ue11d鎿嶄綔涓嶅彲鎭㈠\ue632銆?))return;"
+L377: [删除澶辫触] ctx="));throw new Error(e.detail||'删除澶辫触');}"
+L379: [宸插垹闄] ctx="    showToast('Skill 宸插垹闄?);currentSkillSlug=null;await"
+L381: [閫夋嫨宸] ctx='div class="skills-empty-text">閫夋嫨宸︿晶 Skill 鏌ョ湅璇︽儏</div></div>\';'
+L381: [晶] ctx='lass="skills-empty-text">閫夋嫨宸︿晶 Skill 鏌ョ湅璇︽儏</div></div>\';'
+L381: [鏌] ctx='ills-empty-text">閫夋嫨宸︿晶 Skill 鏌ョ湅璇︽儏</div></div>\';'
+L381: [湅璇] ctx='ls-empty-text">閫夋嫨宸︿晶 Skill 鏌ョ湅璇︽儏</div></div>\';'
+L381: [儏] ctx='empty-text">閫夋嫨宸︿晶 Skill 鏌ョ湅璇︽儏</div></div>\';'
+L383: [删除澶辫触锛] ctx="  }catch(err){showToast('删除澶辫触锛?+err.message);console.error(e"
+L389: [鈺愨晲鈺] ctx='/* 鈺愨晲鈺?Intake Wizard 鈺愨晲鈺?*/'
+L389: [鈺愨晲鈺] ctx='/* 鈺愨晲鈺?Intake Wizard 鈺愨晲鈺?*/'
+L419: [鍒涘缓瀹屾垚锛屽幓瀵煎叆鏉愭枡] ctx="b.textContent=intakeStep===3?'鍒涘缓瀹屾垚锛屽幓瀵煎叆鏉愭枡':'涓嬩竴姝?;"
+L419: [涓嬩竴姝] ctx="keStep===3?'鍒涘缓瀹屾垚锛屽幓瀵煎叆鏉愭枡':'涓嬩竴姝?;"
+L429: [璇疯緭鍏] ctx="    if(!name){showToast('璇疯緭鍏ヨ姳鍚?浠ｅ彿');return;}"
+L429: [姳鍚] ctx="    if(!name){showToast('璇疯緭鍏ヨ姳鍚?浠ｅ彿');return;}"
+L429: [浠] ctx=" if(!name){showToast('璇疯緭鍏ヨ姳鍚?浠ｅ彿');return;}"
+L429: [彿] ctx="f(!name){showToast('璇疯緭鍏ヨ姳鍚?浠ｅ彿');return;}"
+L435: [鍒涘缓澶辫触锛] ctx="().catch(()=>({}));showToast('鍒涘缓澶辫触锛?+e.detail);return;}"
+L439: [銆] ctx="    showToast('銆?+name+'銆嶅凡鍒涘缓');intakeStep=2;"
+L439: [銆嶅凡鍒涘缓] ctx="    showToast('銆?+name+'銆嶅凡鍒涘缓');intakeStep=2;"
+L455: [銆] ctx="closeIntakeModal();showToast('銆?+intakeData.name+'銆嶅垱寤哄畬鎴愶紒')"
+L455: [銆嶅垱寤哄畬鎴愶紒] ctx="howToast('銆?+intakeData.name+'銆嶅垱寤哄畬鎴愶紒');"
+L471: [鈺愨晲鈺] ctx='/* 鈺愨晲鈺?Analyze Modal 鈺愨晲鈺?*/'
+L471: [鈺愨晲鈺] ctx='/* 鈺愨晲鈺?Analyze Modal 鈺愨晲鈺?*/'
+L485: [寮] ctx="nalyze-run-btn').textContent='寮€濮嬪垎鏋?;"
+L485: [濮嬪垎鏋] ctx="lyze-run-btn').textContent='寮€濮嬪垎鏋?;"
+L491: [鍒嗘瀽銆] ctx="-modal-title').textContent=s?'鍒嗘瀽銆?+s+'銆嶇殑鏉愭枡':'瀵煎叆鏉愭枡 鐢熸垚璁板繂';"
+L491: [銆嶇殑鏉愭枡] ctx="tle').textContent=s?'鍒嗘瀽銆?+s+'銆嶇殑鏉愭枡':'瀵煎叆鏉愭枡 鐢熸垚璁板繂';"
+L491: [瀵煎叆鏉愭枡] ctx="tContent=s?'鍒嗘瀽銆?+s+'銆嶇殑鏉愭枡':'瀵煎叆鏉愭枡 鐢熸垚璁板繂';"
+L491: [鐢熸垚璁板繂] ctx="t=s?'鍒嗘瀽銆?+s+'銆嶇殑鏉愭枡':'瀵煎叆鏉愭枡 鐢熸垚璁板繂';"
+L517: [鏂囦欢璇诲彇澶辫触] ctx="eader.onerror=()=>{showToast('鏂囦欢璇诲彇澶辫触');};reader.readAsText(file);"
+L541: [璇峰厛閫夋嫨鎴栧垱寤轰竴涓] ctx="  if(!analyzeSlug){showToast('璇峰厛閫夋嫨鎴栧垱寤轰竴涓?Skill');return;}"
+L545: [璇锋彁渚涘師濮嬫潗鏂] ctx="  if(!material){showToast('璇锋彁渚涘師濮嬫潗鏂?);return;}"
+L549: [鍒嗘瀽涓] ctx="isabled=true;btn.textContent='鍒嗘瀽涓?..';"
+L563: [分析失败] ctx="ow new Error(e.detail||'Memory分析失败');}"
+L575: [分析失败] ctx="w new Error(e.detail||'Persona分析失败');}"
+L579: [鍒嗘瀽瀹屾垚锛] ctx="    showToast('鍒嗘瀽瀹屾垚锛?);closeAnalyzeModal();"
+L585: [分析失败锛] ctx="    showToast('分析失败锛?+err.message);console.error(e"
+L587: [閲嶆柊鍒嗘瀽] ctx="sabled=false;btn.textContent='閲嶆柊鍒嗘瀽';"
+L605: [鈺愨晲鈺] ctx='/* 鈺愨晲鈺?Correction Modal 鈺愨晲鈺?*/'
+L605: [鈺愨晲鈺] ctx='/* 鈺愨晲鈺?Correction Modal 鈺愨晲鈺?*/'
+L637: [璇峰] ctx="inal||!correction){showToast('璇峰～鍐欑籂姝ｅ唴瀹?);return;}"
+L637: [鍐欑籂姝] ctx="l||!correction){showToast('璇峰～鍐欑籂姝ｅ唴瀹?);return;}"
+L637: [唴瀹] ctx="orrection){showToast('璇峰～鍐欑籂姝ｅ唴瀹?);return;}"
+L647: [绾犳] ctx="));throw new Error(e.detail||'绾犳\ue11c澶辫触');}"
+L647: [澶辫触] ctx="throw new Error(e.detail||'绾犳\ue11c澶辫触');}"
+L649: [绾犳] ctx="eCorrectionModal();showToast('绾犳\ue11c宸插簲鐢?);await loadSkillDetail("
+L649: [宸插簲鐢] ctx="rrectionModal();showToast('绾犳\ue11c宸插簲鐢?);await loadSkillDetail(corre"
+L651: [绾犳] ctx="  }catch(err){showToast('绾犳\ue11c澶辫触锛?+err.message);console.er"
+L651: [澶辫触锛] ctx="  }catch(err){showToast('绾犳\ue11c澶辫触锛?+err.message);console.error(e"

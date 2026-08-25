@@ -1,0 +1,4 @@
+  File "E:\wh\10nodata\program\chatex\app\routers\skills.py", line 112
+    """鐢?LLM 鑷姩璇嗗埆鐨勭籂鍋忚姹傘€?""
+                         ^
+SyntaxError: invalid character '€' (U+20AC)
