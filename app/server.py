@@ -1,4 +1,4 @@
-﻿"""
+"""
 llama-server 子进程管理模块。
 
 负责启停 llama-server.exe，并处理进程守护、健康检查、优雅关闭。

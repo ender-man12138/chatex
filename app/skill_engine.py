@@ -1,4 +1,4 @@
-﻿"""
+"""
 Skill 引擎 — create-ex 工具适配层（深度集成版）。
 
 对接 skills/create-ex/prompts/ 下的各分析提示词：

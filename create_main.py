@@ -1,4 +1,7 @@
-"""
+import sys
+sys.path.insert(0, r"E:\wh\10nodata\program\chatex")
+
+code = '''"""
 ChatEx FastAPI 主应用入口。
 """
 
@@ -38,7 +41,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from app.routers import health, chat, skills_new as skills, file_import
+from app.routers import health, chat, skills, file_import
 app.include_router(health.router)
 app.include_router(chat.router)
 app.include_router(skills.router)
@@ -57,3 +60,8 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=config.APP_PORT, reload=False, log_level=config.LOG_LEVEL)
+'''
+
+with open(r"E:\wh\10nodata\program\chatex\main.py", "w", encoding="utf-8") as f:
+    f.write(code)
+print("Written main.py successfully")
