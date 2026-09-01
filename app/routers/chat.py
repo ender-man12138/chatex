@@ -118,6 +118,10 @@ async def chat(req: ChatRequest) -> ChatResponse:
             messages=api_messages,
             stream=True,
             temperature=0.7,
+            extra_body={
+                "chat_template_kwargs": {"enable_thinking": False},
+                "reasoning_effort": "off",
+            },
         )
         parts: list[str] = []
         async for chunk in stream:

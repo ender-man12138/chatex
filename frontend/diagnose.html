@@ -1,0 +1,57 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ChatEx 诊断</title>
+<style>
+body{font-family:monospace;padding:20px;background:#0d1117;color:#c9d1d9}
+.ok{color:#3fb950} .err{color:#f85149} .warn{color:#d29922}
+pre{background:#161b22;padding:15px;border-radius:8px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<h2>ChatEx 连接诊断</h2>
+<pre id="log">正在初始化...</pre>
+<script>
+const log = document.getElementById('log');
+function p(m, cls='') { const span = document.createElement('span'); span.className = cls; span.textContent = m + '\n'; log.appendChild(span); }
+p('时间: ' + new Date().toLocaleString('zh-CN'));
+p('URL: ' + location.href);
+p('Origin: ' + location.origin);
+p('');
+p('步骤 1: 检查 DOM 元素...', '');
+const dot = document.getElementById('server-dot');
+const txt = document.getElementById('server-text');
+p('  server-dot: ' + (dot ? 'FOUND' : 'NOT FOUND'), dot ? 'ok' : 'err');
+p('  server-text: ' + (txt ? 'FOUND' : 'NOT FOUND'), txt ? 'ok' : 'err');
+p('');
+p('步骤 2: 测试 /api/health ...', '');
+fetch('http://127.0.0.1:9090/api/health', {
+  signal: AbortSignal.timeout(5000),
+  mode: 'cors',
+  credentials: 'omit'
+})
+.then(r => {
+  p('  HTTP ' + r.status, r.ok ? 'ok' : 'err');
+  return r.json();
+})
+.then(d => {
+  p('  响应: ' + JSON.stringify(d), 'ok');
+  p('');
+  p('步骤 3: 更新UI ...', '');
+  if (dot) dot.className = 'ok';
+  if (txt) txt.textContent = '后端已连接';
+  p('  UI 更新完成', 'ok');
+  p('');
+  p('=== 诊断完成 ===', 'ok');
+})
+.catch(e => {
+  p('  错误: ' + e.message, 'err');
+  p('  类型: ' + e.name, 'err');
+  p('');
+  p('=== 诊断失败 ===', 'err');
+});
+p('步骤 2 请求已发出，等待响应...');
+</script>
+</body>
+</html>

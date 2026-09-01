@@ -1,4 +1,4 @@
-"""
+﻿"""
 ChatEx FastAPI 主应用入口。
 """
 
@@ -8,6 +8,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app import config
@@ -36,6 +37,15 @@ app = FastAPI(
     description="本地离线聊天工具 API",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 from app.routers import health, chat, skills_new as skills, file_import
