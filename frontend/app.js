@@ -1,4 +1,4 @@
-﻿/* Constants */
+/* Constants */
 
 const API='http://127.0.0.1:9090',HEALTH_URL='http://127.0.0.1:9090/api/health';
 

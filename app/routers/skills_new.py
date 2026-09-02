@@ -168,7 +168,7 @@ async def create_skill(req: CreateReq) -> dict:
 
 
 @router.post("/analyze")
-async def analyze_skill(slug: str, req: AnalyzeReq) -> dict:
+async def analyze_skill_both(slug: str, req: AnalyzeReq) -> dict:
     """执行 Skill 分析（memory + persona 两步）。"""
     if not _meta_path(slug).exists():
         raise HTTPException(status_code=404, detail=f"Skill 不存在: {slug}")
@@ -560,7 +560,7 @@ class IntakeReq(BaseModel):
 async def intake_create(req: IntakeReq) -> dict:
     """Intake 创建端点（兼容前端三步式 intake 流程）。"""
     slug = req.name.lower().replace(" ", "-").replace("/", "-")
-    slug = re.sub(r"[^a-z0-9\\-]", "", slug)
+    slug = re.sub(r"[^a-z0-9\-]", "", slug)
     if not slug:
         slug = uuid.uuid4().hex[:8]
 
@@ -609,13 +609,76 @@ async def intake_create(req: IntakeReq) -> dict:
 @router.post("/{slug}/analyze-memory")
 async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
     """分析 memory 层（前端独立调用，复用 analyze_skill 逻辑）。"""
-    return await analyze_skill(slug, req)
+    if not _meta_path(slug).exists():
+        raise HTTPException(status_code=404, detail=f"Skill 不存在: {slug}")
+    if not is_ready():
+        raise HTTPException(status_code=503, detail="推理服务未就绪")
+    
+    meta = json.loads(_meta_path(slug).read_text(encoding="utf-8"))
+    name = meta.get("name", slug)
+    profile = meta.get("profile", {})
+    summary = profile.get("summary", "")
+    personality = profile.get("personality", "")
+    
+    prompt = build_memory_prompt(
+        name=name,
+        summary=summary,
+        personality=personality,
+        raw_material=req.raw_material,
+        source_type=req.source_type,
+    )
+    
+    client = get_llm_client(slug)
+    try:
+        response = await client.chat.completions.create(
+            model="qwen3.5-2b",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+        )
+        memory_content = response.choices[0].message.content or ""
+    except Exception as e:
+        logger.error(f"Memory analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"分析失败: {e}")
+    
+    skill_dir = _skill_dir(slug)
+    (skill_dir / "memory.md").write_text(memory_content, encoding="utf-8")
+    
+    prompt2 = build_persona_prompt(
+        name=name,
+        summary=summary,
+        personality=personality,
+        raw_material=req.raw_material,
+        source_type=req.source_type,
+    )
+    
+    try:
+        response2 = await client.chat.completions.create(
+            model="qwen3.5-2b",
+            messages=[{"role": "user", "content": prompt2}],
+            temperature=0.3,
+        )
+        persona_content = response2.choices[0].message.content or ""
+    except Exception as e:
+        logger.error(f"Persona analysis failed: {e}")
+        persona_content = f"# {name} 的人物性格\n\n[分析失败，请手动编辑]"
+    
+    (skill_dir / "persona.md").write_text(persona_content, encoding="utf-8")
+    
+    meta["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    meta["profile"]["summary"] = summary
+    (skill_dir / "meta.json").write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    
+    return {
+        "slug": slug,
+        "status": "analyzed",
+        "memory_length": len(memory_content),
+        "persona_length": len(persona_content),
+    }
 
 
-@router.post("/{slug}/analyze-persona")
-async def analyze_persona(slug: str, req: AnalyzeReq) -> dict:
-    """分析 persona 层（前端独立调用，复用 analyze_skill 逻辑）。"""
-    return await analyze_skill(slug, req)
+# analyze_persona endpoint removed - analyze_memory now generates both memory and persona simultaneously
 
 
 @router.post("/{slug}/correction")
