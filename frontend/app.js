@@ -92,7 +92,7 @@ async function loadConversations(){
 
     $convList.innerHTML='';
 
-    if(convs.length===0){$convList.innerHTML='<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:12px">鏆傛棤瀵硅瘽</div>';return;}
+    if(convs.length===0){$convList.innerHTML='<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:12px">暂无对话</div>';return;}
 
     convs.forEach(c=>{
 
@@ -100,7 +100,7 @@ async function loadConversations(){
 
       el.className='conv-item'+(c.id===currentConvId?' active':'');
 
-      el.innerHTML="<div class='conv-info'><div class='conv-title'>"+escHtml(c.title)+"</div><div class='conv-meta'>"+c.message_count+" 鏉℃秷鎭?"+fmtTime(c.updated_at)+"</div></div><button class='conv-delete' data-id='"+escHtml(c.id)+"' title='鍒犻櫎'>x</button>";
+      el.innerHTML="<div class='conv-info'><div class='conv-title'>"+escHtml(c.title)+"</div><div class='conv-meta'>"+c.message_count+" 条消息 "+fmtTime(c.updated_at)+"</div></div><button class='conv-delete' data-id='"+escHtml(c.id)+"' title='删除'>x</button>";
 
       el.querySelector('.conv-info').addEventListener('click',()=>switchConv(c.id));
 
@@ -134,7 +134,7 @@ async function switchConv(id){
 
   }
 
-  $title.textContent=data.title||'瀵硅瘽';
+  $title.textContent=data.title||'对话';
 
   renderMessages(data.messages||[]);
 
@@ -146,7 +146,7 @@ async function switchConv(id){
 
 async function newConversation(){
 
-  currentConvId=null;$title.textContent='鏂板缓瀵硅瘽';
+  currentConvId=null;$title.textContent='新建对话';
 
   $messages.innerHTML='';$messages.appendChild($empty);$empty.style.display='';
 
@@ -168,7 +168,7 @@ function clearChat(){
 
   $messages.innerHTML='';$messages.appendChild($empty);$empty.style.display='';
 
-  currentConvId=null;$title.textContent='鏂板缓瀵硅瘽';
+  currentConvId=null;$title.textContent='新建对话';
 
 }
 
@@ -192,7 +192,7 @@ function appendMessage(role,content,silent){
 
   const row=document.createElement('div');row.className='msg-row '+role;
 
-  const initial=role==='user'?'浣?:(currentSkillSlug?currentSkillSlug[3].toUpperCase():'x');
+  const initial=role==='user'?'我':(currentSkillSlug?currentSkillSlug[0].toUpperCase():'X');
 
   row.innerHTML="<div class='avatar'>"+escHtml(initial)+"</div><div class='bubble'>"+(role==='user'?escHtml(content):formatAiContent(content))+"</div>";
 
@@ -236,7 +236,7 @@ async function sendMessage(){
 
     if(lastRow&&lastRow.querySelector('.typing-indicator'))lastRow.remove();
 
-    showToast('鍙戦€佸け璐ワ細'+err.message);console.error(err);
+    showToast('发送失败：'+err.message);console.error(err);
 
   }finally{setSendState(false);}
 
@@ -258,11 +258,11 @@ function renderSkillList(skills){
 
   if(!skills||!skills.length){
 
-    $list.innerHTML='<div class="skills-empty"><div class="skills-empty-icon">x</div><div class="skills-empty-text">杩樻病鏈夊墠浠?Skill<br>鐐瑰嚮涓婃柟鍒涘缓鍓嶄换寮€濮?/div></div>';return;
+    $list.innerHTML='<div class="skills-empty"><div class="skills-empty-icon">x</div><div class="skills-empty-text">还没有前任？<br>点击上方创建前任开始</div></div>';return;
 
   }
 
-  $list.innerHTML=skills.map(s=>'<div class="skill-card '+(s.slug===currentSkillSlug?'active':'')+'" data-slug="'+escHtml(s.slug)+'" onclick="selectSkill(\\''+escHtml(s.slug)+'\\')"><div class="skill-card-name">'+escHtml(s.name)+'</div><div class="skill-card-meta"><span>'+s.created_at?.slice(0,10)+' v'+s.version+'</span><span class="skill-card-status '+(s.has_skill?'ready':s.has_memory?'incomplete':'empty')+'">'+(s.has_skill?'灏辩华':s.has_memory?'閮ㄥ垎':'鏈紑濮?)+'</span><span class="skill-card-source '+(s.source==='import'?'cloud':'local')+'">'+(s.source==='import'?'API':'鏈湴')+'</span></div></div>').join('');
+  $list.innerHTML=skills.map(s=>'<div class="skill-card '+(s.slug===currentSkillSlug?'active':'')+'" data-slug="'+escHtml(s.slug)+'" onclick="selectSkill(\\''+escHtml(s.slug)+'\\')"><div class="skill-card-name">'+escHtml(s.name)+'</div><div class="skill-card-meta"><span>'+s.created_at?.slice(0,10)+' v'+s.version+'</span><span class="skill-card-status '+(s.has_skill?'ready':s.has_memory?'incomplete':'empty')+'">'+(s.has_skill?'就绪':s.has_memory?'部分':'未开始')+'</span><span class="skill-card-source '+(s.source==='import'?'cloud':'local')+'">'+(s.source==='import'?'API':'本地')+'</span></div></div>').join('');
 
 }
 
@@ -292,25 +292,25 @@ function renderSkillDetail(s){
 
   const canChat=s.has_skill;
 
-  const memText=s.memory?escHtml(s.memory):'<div class="skill-section-empty">灏氭湭鐢熸垚</div>';
+  const memText=s.memory?escHtml(s.memory):'<div class="skill-section-empty">尚未生成</div>';
 
-  const perText=s.persona?escHtml(s.persona):'<div class="skill-section-empty">灏氭湭鐢熸垚</div>';
+  const perText=s.persona?escHtml(s.persona):'<div class="skill-section-empty">尚未生成</div>';
 
-  const skillText=s.skill_md?escHtml(s.skill_md.slice(0,800))+(s.skill_md.length>800?'...':''):'<div class="skill-section-empty">灏氭湭鐢熸垚</div>';
+  const skillText=s.skill_md?escHtml(s.skill_md.slice(0,800))+(s.skill_md.length>800?'...':''):'<div class="skill-section-empty">尚未生成</div>';
 
   $panel.innerHTML=
 
-    '<div class="skill-detail-header"><div class="skill-detail-avatar">'+escHtml(initial)+'</div><div class="skill-detail-info"><div class="skill-detail-name">'+escHtml(s.name||s.slug)+'</div><div class="skill-detail-summary">'+escHtml(s.profile?.summary||'鏆傛棤绠€浠?)+'</div><div class="skill-detail-version">鍒涘缓浜?'+s.created_at?.slice(0,10)+' v'+s.version+' <span class="skill-card-source '+(s.source==="import"?"cloud":"local")+'">'+(s.source==="import"?"API":"鏈湴")+'</span></div></div></div>'+
+    '<div class="skill-detail-header"><div class="skill-detail-avatar">'+escHtml(initial)+'</div><div class="skill-detail-info"><div class="skill-detail-name">'+escHtml(s.name||s.slug)+'</div><div class="skill-detail-summary">'+escHtml(s.profile?.summary||'暂无简介')+'</div><div class="skill-detail-version">创建人: '+s.created_at?.slice(0,10)+' v'+s.version+' <span class="skill-card-source '+(s.source==="import"?"cloud":"local")+'">'+(s.source==="import"?"API":"本地")+'</span></div></div></div>'+
 
     '<div class="skill-detail-actions">'+
 
-      '<button class="skill-action-btn" onclick="startSkillChat(\\''+escHtml(s.slug)+'\\')" '+(canChat?'':'disabled style="opacity:0.4"')+'>鑱婂ぉ: '+escHtml(s.name||s.slug)+'</button>'+
+      '<button class="skill-action-btn" onclick="startSkillChat(\\''+escHtml(s.slug)+'\\')" '+(canChat?'':'disabled style="opacity:0.4"')+'>聊天: '+escHtml(s.name||s.slug)+'</button>'+
 
-      '<button class="skill-action-btn" onclick="openAnalyzeModal(\\''+escHtml(s.slug)+'\\')">瀵煎叆鏉愭枡鍒嗘瀽</button>'+
+      '<button class="skill-action-btn" onclick="openAnalyzeModal(\\''+escHtml(s.slug)+'\\')">导入材料分析</button>'+
 
-      '<button class="skill-action-btn" onclick="openCorrectionModal(\\''+escHtml(s.slug)+'\\')" '+( !s.has_memory&&!s.has_persona?'disabled style="opacity:0.4"':'')+'>绾犳璁板繂</button>'+
+      '<button class="skill-action-btn" onclick="openCorrectionModal(\\''+escHtml(s.slug)+'\\')" '+( !s.has_memory&&!s.has_persona?'disabled style="opacity:0.4"':'')+'>纠正记忆</button>'+
 
-      '<button class="skill-action-btn danger" onclick="deleteSkill(\\''+escHtml(s.slug)+'\\')">鍒犻櫎</button>'+
+      '<button class="skill-action-btn danger" onclick="deleteSkill(\\''+escHtml(s.slug)+'\\')">删除</button>'+
 
     '</div>';
 
@@ -318,9 +318,9 @@ function renderSkillDetail(s){
 
     $panel.innerHTML+='<div class="detail-tabs">'+
 
-      '<div class="detail-tab active" onclick="switchDetailTab(\'memory\',this)">鍏崇郴璁板繂</div>'+
+      '<div class="detail-tab active" onclick="switchDetailTab(\'memory\',this)">关系记忆</div>'+
 
-      '<div class="detail-tab" onclick="switchDetailTab(\'persona\',this)">浜虹墿鎬ф牸</div>'+
+      '<div class="detail-tab" onclick="switchDetailTab(\'persona\',this)">人物性格</div>'+
 
       '<div class="detail-tab" onclick="switchDetailTab(\'skill\',this)">SKILL.md</div>'+
 
@@ -334,7 +334,7 @@ function renderSkillDetail(s){
 
   }else{
 
-    $panel.innerHTML+='<div class="skill-section"><div class="skill-section-empty" style="padding:20px;text-align:center">杩樻病鏈夎蹇嗘暟鎹?br><span style="font-size:11px">鐐瑰嚮瀵煎叆鏉愭枡鍒嗘瀽寮€濮嬬敓鎴?/span></div></div>';
+    $panel.innerHTML+='<div class="skill-section"><div class="skill-section-empty" style="padding:20px;text-align:center">还没有记忆数据<br><span style="font-size:11px">点击导入材料分析开始生成</span></div></div>';
 
   }
 
@@ -368,25 +368,25 @@ function startSkillChat(slug){
 
 async function deleteSkill(slug){
 
-  if(!confirm('纭畾瑕佸垹闄?Skill銆?+slug+'銆嶅悧锛熸鎿嶄綔涓嶅彲鎭㈠銆?))return;
+  if(!confirm('确定要删除「Skill、'+slug+'」吗？此操作不可恢复。'))return;
 
   try{
 
     const resp=await fetch(API+'/api/skills/'+slug,{method:'DELETE'});
 
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.detail||'鍒犻櫎澶辫触');}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error('删除失败');}
 
-    showToast('Skill 宸插垹闄?);currentSkillSlug=null;await loadSkills();
+    showToast('Skill 已删除');currentSkillSlug=null;await loadSkills();
 
-    document.getElementById('skill-detail-panel').innerHTML='<div class="skills-empty"><div class="skills-empty-icon">x</div><div class="skills-empty-text">閫夋嫨宸︿晶 Skill 鏌ョ湅璇︽儏</div></div>';
+    document.getElementById('skill-detail-panel').innerHTML='<div class="skills-empty"><div class="skills-empty-icon">x</div><div class="skills-empty-text">选择左侧 Skill 查看详情</div></div>';
 
-  }catch(err){showToast('鍒犻櫎澶辫触锛?+err.message);console.error(err);}
+  }catch(err){showToast('删除失败：'+err.message);console.error(err);}
 
 }
 
 
 
-/* 鈺愨晲鈺?Intake Wizard 鈺愨晲鈺?*/
+/* ━━ Intake Wizard ━━*/
 
 function openIntakeModal(){
 
@@ -416,7 +416,7 @@ function updateIntakeUI(){
 
   const nb=document.getElementById('intake-next-btn');
 
-  nb.textContent=intakeStep===3?'鍒涘缓瀹屾垚锛屽幓瀵煎叆鏉愭枡':'涓嬩竴姝?;
+  nb.textContent=intakeStep===3?'创建完成，去导入材料':'下一步';
 
 }
 
@@ -426,17 +426,17 @@ async function intakeNextStep(){
 
     const name=document.getElementById('intake-name').value.trim();
 
-    if(!name){showToast('璇疯緭鍏ヨ姳鍚?浠ｅ彿');return;}
+    if(!name){showToast('请输入花名/代号');return;}
 
     intakeData.name=name;
 
     const resp=await fetch(API+'/api/skills/intake',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})});
 
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));showToast('鍒涘缓澶辫触锛?+e.detail);return;}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));showToast('创建失败：'+e.detail);return;}
 
     const data=await resp.json();intakeSlug=data.slug;
 
-    showToast('銆?+name+'銆嶅凡鍒涘缓');intakeStep=2;
+    showToast('「'+name+'」已创建');intakeStep=2;
 
   }else if(intakeStep===2){
 
@@ -452,7 +452,7 @@ async function intakeNextStep(){
 
     await fetch(API+'/api/skills/intake',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:intakeData.name,summary:intakeData.summary,personality:intakeData.personality})});
 
-    closeIntakeModal();showToast('銆?+intakeData.name+'銆嶅垱寤哄畬鎴愶紒');
+    closeIntakeModal();showToast('「'+intakeData.name+'」创建完成！');
 
     await loadSkills();selectSkill(intakeSlug);
 
@@ -468,7 +468,7 @@ function intakePrevStep(){if(intakeStep>1){intakeStep--;updateIntakeUI();}}
 
 
 
-/* 鈺愨晲鈺?Analyze Modal 鈺愨晲鈺?*/
+/* ━━ Analyze Modal ━━*/
 
 function openAnalyzeModal(slug){
 
@@ -482,13 +482,13 @@ function openAnalyzeModal(slug){
 
   document.getElementById('analyze-run-btn').disabled=false;
 
-  document.getElementById('analyze-run-btn').textContent='寮€濮嬪垎鏋?;
+  document.getElementById('analyze-run-btn').textContent='开始分析';
 
   document.querySelectorAll('.source-btn').forEach(btn=>{btn.classList.toggle('active',btn.dataset.source==='text');});
 
   const s=slug||'';
 
-  document.getElementById('analyze-modal-title').textContent=s?'鍒嗘瀽銆?+s+'銆嶇殑鏉愭枡':'瀵煎叆鏉愭枡 鐢熸垚璁板繂';
+  document.getElementById('analyze-modal-title').textContent=s?'分析「'+s+'」的材料':'导入材料 生成记忆';
 
   document.getElementById('analyze-modal').classList.add('open');
 
@@ -514,7 +514,7 @@ function handleFileSelect(event){
 
   reader.onload=(e)=>{document.getElementById('analyze-material').value=e.target.result;};
 
-  reader.onerror=()=>{showToast('鏂囦欢璇诲彇澶辫触');};reader.readAsText(file);
+  reader.onerror=()=>{showToast('文件读取失败');};reader.readAsText(file);
 
 }
 
@@ -538,15 +538,15 @@ function handleFileDrop(event){
 
 async function runAnalyzeCurrent(){
 
-  if(!analyzeSlug){showToast('璇峰厛閫夋嫨鎴栧垱寤轰竴涓?Skill');return;}
+  if(!analyzeSlug){showToast('请先选择或创建一个Skill');return;}
 
   const material=document.getElementById('analyze-material').value.trim();
 
-  if(!material){showToast('璇锋彁渚涘師濮嬫潗鏂?);return;}
+  if(!material){showToast('请提供原始材料');return;}
 
   const btn=document.getElementById('analyze-run-btn');
 
-  btn.disabled=true;btn.textContent='鍒嗘瀽涓?..';
+  btn.disabled=true;btn.textContent='分析中...';
 
   document.getElementById('analyze-progress').classList.add('active');
 
@@ -560,7 +560,7 @@ async function runAnalyzeCurrent(){
 
       body:JSON.stringify({raw_material:material,source_type:analyzeSource})});
 
-    if(!memResp.ok){const e=await memResp.json().catch(()=>({}));throw new Error(e.detail||'Memory鍒嗘瀽澶辫触');}
+    if(!memResp.ok){const e=await memResp.json().catch(()=>({}));throw new Error(e.detail||'Memory分析失败');}
 
     setProgress(1,'done');
 
@@ -572,19 +572,19 @@ async function runAnalyzeCurrent(){
 
       body:JSON.stringify({raw_material:material,source_type:analyzeSource})});
 
-    if(!perResp.ok){const e=await perResp.json().catch(()=>({}));throw new Error(e.detail||'Persona鍒嗘瀽澶辫触');}
+    if(!perResp.ok){const e=await perResp.json().catch(()=>({}));throw new Error(e.detail||'Persona分析失败');}
 
     setProgress(2,'done');
 
-    showToast('鍒嗘瀽瀹屾垚锛?);closeAnalyzeModal();
+    showToast('分析完成！');closeAnalyzeModal();
 
     await loadSkillDetail(analyzeSlug);await loadSkills();
 
   }catch(err){
 
-    showToast('鍒嗘瀽澶辫触锛?+err.message);console.error(err);
+    showToast('分析失败：'+err.message);console.error(err);
 
-    btn.disabled=false;btn.textContent='閲嶆柊鍒嗘瀽';
+    btn.disabled=false;btn.textContent='重新分析';
 
   }
 
@@ -602,7 +602,7 @@ function setProgress(step,state){
 
 
 
-/* 鈺愨晲鈺?Correction Modal 鈺愨晲鈺?*/
+/* ━━ Correction Modal ━━*/
 
 function openCorrectionModal(slug){
 
@@ -634,7 +634,7 @@ async function applyManualCorrection(){
 
   const note=document.getElementById('corr-note').value.trim();
 
-  if(!original||!correction){showToast('璇峰～鍐欑籂姝ｅ唴瀹?);return;}
+  if(!original||!correction){showToast('请填写纠正内容');return;}
 
   try{
 
@@ -644,11 +644,11 @@ async function applyManualCorrection(){
 
       body:JSON.stringify({layer:correctionLayer,original,correction,user_note:note})});
 
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.detail||'绾犳澶辫触');}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.detail||'纠正失败');}
 
-    closeCorrectionModal();showToast('绾犳宸插簲鐢?);await loadSkillDetail(correctionSlug);
+    closeCorrectionModal();showToast('纠正已应用');await loadSkillDetail(correctionSlug);
 
-  }catch(err){showToast('绾犳澶辫触锛?+err.message);console.error(err);}
+  }catch(err){showToast('纠正失败：'+err.message);console.error(err);}
 
 }
 

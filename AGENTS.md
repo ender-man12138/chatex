@@ -52,6 +52,17 @@ Get-Process -Name python -ErrorAction SilentlyContinue
 
 ---
 
+## 禁止使用脚本批量修改代码和文件
+
+**不得**使用 Python、PowerShell、Node.js 或其他任何脚本语言批量修改代码或文件。
+
+- 所有文件修改必须使用 `Edit`（SearchReplace）工具逐个操作
+- 不得通过 `RunCommand` 调用 Python/PowerShell/Node 等脚本来写入、替换或批量处理文件内容
+- 即使用于诊断或调试，也不得用脚本直接修改源文件
+- 涉及中文乱码等编码问题的修复，也必须逐行用 SearchReplace 手动替换
+
+---
+
 ## Git 操作规范
 
 - **提交（commit）与推送（push）由用户手动操作，Agent 禁止执行**
