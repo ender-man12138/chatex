@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from app import config
 from app.server import build_openai_url, is_ready
-from app.routers._client import get_llm_client
+from app.routers._client import get_llm_client, get_model_name
 from app.skill_engine import (
     build_analyze_prompt,
     build_memory_prompt,
@@ -66,6 +66,10 @@ def _memory_path(slug: str) -> Path:
 
 def _persona_path(slug: str) -> Path:
     return _skill_dir(slug) / "persona.md"
+
+
+def _skill_path(slug: str) -> Path:
+    return _skill_dir(slug) / "skill.md"
 
 
 # ── 数据模型 ───────────────────────────────────────────────────────────────────
@@ -192,7 +196,7 @@ async def analyze_skill_both(slug: str, req: AnalyzeReq) -> dict:
     client = get_llm_client(slug)
     try:
         response = await client.chat.completions.create(
-            model="qwen3.5-2b",
+            model=get_model_name(slug),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
@@ -215,7 +219,7 @@ async def analyze_skill_both(slug: str, req: AnalyzeReq) -> dict:
 
     try:
         response2 = await client.chat.completions.create(
-            model="qwen3.5-2b",
+            model=model_name,
             messages=[{"role": "user", "content": prompt2}],
             temperature=0.3,
         )
@@ -251,6 +255,8 @@ async def get_skill(slug: str) -> dict:
               if _memory_path(slug).exists() else "")
     persona = (_persona_path(slug).read_text(encoding="utf-8")
                if _persona_path(slug).exists() else "")
+    skill_md = (_skill_path(slug).read_text(encoding="utf-8")
+                if _skill_path(slug).exists() else "")
 
     return {
         "slug": slug,
@@ -259,10 +265,12 @@ async def get_skill(slug: str) -> dict:
         "created_at": meta.get("created_at", ""),
         "updated_at": meta.get("updated_at", ""),
         "profile": meta.get("profile", {}),
+        "has_skill": bool(skill_md),
         "has_memory": bool(memory),
         "has_persona": bool(persona),
-        "memory_preview": memory[:200] + "..." if len(memory) > 200 else memory,
-        "persona_preview": persona[:200] + "..." if len(persona) > 200 else persona,
+        "memory": memory,
+        "persona": persona,
+        "skill_md": skill_md,
     }
 
 
@@ -301,7 +309,7 @@ async def merge_material(slug: str, req: MergeReq) -> dict:
     client = get_llm_client(slug)
     try:
         response = await client.chat.completions.create(
-            model="qwen3.5-2b",
+            model=get_model_name(slug),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
@@ -367,7 +375,7 @@ async def run_skill(slug: str, req: SkillRunReq) -> dict:
 
     try:
         response = await client.chat.completions.create(
-            model="qwen3.5-2b",
+            model=get_model_name(slug),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": req.message},
@@ -434,15 +442,15 @@ async def correct_via_llm(slug: str, req: CorrectionLLMReq) -> dict:
 
     prompt = build_analyze_prompt(
         name=slug,
-        memory=req.current_memory,
-        persona=req.current_persona,
-        message=req.message,
+        summary=req.current_memory,
+        personality=req.current_persona,
+        raw_material=req.message,
     )
 
     client = get_llm_client(slug)
     try:
         response = await client.chat.completions.create(
-            model="qwen3.5-2b",
+            model=get_model_name(slug),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
@@ -529,11 +537,16 @@ async def import_file(slug: str, file: UploadFile = File(...), source_type: str 
     output_path = str(save_path.with_suffix(".analysis.md"))
     result = run_parser(str(save_path), name, output_path, source_type)
 
+    parsed_content = ""
+    if result.get("returncode") == 0 and Path(output_path).exists():
+        parsed_content = Path(output_path).read_text(encoding="utf-8", errors="replace")
+
     return {
         "slug": slug,
         "filename": file.filename,
         "format": result.get("format", "unknown"),
         "returncode": result.get("returncode"),
+        "parsed_content": parsed_content,
         "output": result.get("stdout", "")[:500],
     }
 
@@ -542,11 +555,7 @@ async def import_file(slug: str, file: UploadFile = File(...), source_type: str 
 
 def _strip_thinking(text: str) -> str:
     """移除模型输出中的思维标签。"""
-    text = re.sub(r"\s*<\\think>\s*", " ", text)
-    text = re.sub(r"\s*<\\finish>\s*", " ", text)
-    text = re.sub(r"\s*<\?think\?>\s*", " ", text)
-    text = re.sub(r"\s*<\?finish\?>\s*", " ", text)
-    return text.strip()
+    return re.sub(r"<think(?:ing)?\b.*?</think(?:ing)?>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
 
 # ── 前端兼容性端点 ──────────────────────────────────────────────────────────────
 
@@ -613,13 +622,18 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
         raise HTTPException(status_code=404, detail=f"Skill 不存在: {slug}")
     if not is_ready():
         raise HTTPException(status_code=503, detail="推理服务未就绪")
-    
+
     meta = json.loads(_meta_path(slug).read_text(encoding="utf-8"))
     name = meta.get("name", slug)
     profile = meta.get("profile", {})
     summary = profile.get("summary", "")
     personality = profile.get("personality", "")
-    
+
+    # 有材料 → 路径B（外部大模型），无材料 → 路径A（本地小模型）
+    has_material = bool(req.raw_material.strip())
+    client = get_llm_client(slug, has_material=has_material)
+    model_name = get_model_name(slug, has_material=has_material)
+
     prompt = build_memory_prompt(
         name=name,
         summary=summary,
@@ -627,11 +641,10 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
         raw_material=req.raw_material,
         source_type=req.source_type,
     )
-    
-    client = get_llm_client(slug)
+
     try:
         response = await client.chat.completions.create(
-            model="qwen3.5-2b",
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
@@ -639,10 +652,11 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
     except Exception as e:
         logger.error(f"Memory analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"分析失败: {e}")
-    
-    skill_dir = _skill_dir(slug)
-    (skill_dir / "memory.md").write_text(memory_content, encoding="utf-8")
-    
+
+    (skill_dir := _skill_dir(slug)) / "memory.md".write_text(
+        memory_content, encoding="utf-8"
+    )
+
     prompt2 = build_persona_prompt(
         name=name,
         summary=summary,
@@ -650,10 +664,10 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
         raw_material=req.raw_material,
         source_type=req.source_type,
     )
-    
+
     try:
         response2 = await client.chat.completions.create(
-            model="qwen3.5-2b",
+            model=model_name,
             messages=[{"role": "user", "content": prompt2}],
             temperature=0.3,
         )
@@ -661,15 +675,15 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
     except Exception as e:
         logger.error(f"Persona analysis failed: {e}")
         persona_content = f"# {name} 的人物性格\n\n[分析失败，请手动编辑]"
-    
+
     (skill_dir / "persona.md").write_text(persona_content, encoding="utf-8")
-    
+
     meta["updated_at"] = datetime.now().isoformat(timespec="seconds")
     meta["profile"]["summary"] = summary
     (skill_dir / "meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    
+
     return {
         "slug": slug,
         "status": "analyzed",

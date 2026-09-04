@@ -6,6 +6,7 @@ ChatEx 配置管理模块。
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -42,10 +43,33 @@ MAX_HISTORY = int(os.getenv("CHATEX_MAX_HISTORY", "20"))    # 每条对话最多
 # ── 其他 ──────────────────────────────────────────────────────────────────────
 LOG_LEVEL = os.getenv("CHATEX_LOG_LEVEL", "info")
 SHUTDOWN_WAIT_SECONDS = int(os.getenv("CHATEX_SHUTDOWN_WAIT", "3"))  # 关闭前等待 llama-server 退出的秒数
-# ── 在线 API 配置（可选）──────────────────────────────────────────────
-API_BASE_URL = os.getenv("CHATEX_API_BASE_URL", "")   # 在线 API base URL，留空则禁用
-API_KEY = os.getenv("CHATEX_API_KEY", "")             # 在线 API key，留空则禁用
-API_MODEL = os.getenv("CHATEX_API_MODEL", "qwen-plus")  # 在线 API 模型名
+# ── 在线 API 配置（可选，持久化到 data/settings.json）──────────────────────
+_SETTINGS_FILE = DATA_DIR / "settings.json"
+
+def _load_settings() -> dict:
+    """从 settings.json 加载持久化的 API 配置，失败则返回空字典。"""
+    if _SETTINGS_FILE.exists():
+        try:
+            return json.loads(_SETTINGS_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+_settings = _load_settings()
+
+API_BASE_URL = _settings.get("api_base_url", "")
+API_KEY = _settings.get("api_key", "")
+API_MODEL = _settings.get("api_model", "qwen-plus")
+
+
+def save_api_settings(base_url: str, api_key: str, api_model: str) -> None:
+    """保存 API 配置到 settings.json（KEY 明文存储，仅本地使用）。"""
+    global API_BASE_URL, API_KEY, API_MODEL
+    data = {"api_base_url": base_url, "api_key": api_key, "api_model": api_model}
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _SETTINGS_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    API_BASE_URL, API_KEY, API_MODEL = base_url, api_key, api_model
+
 
 def is_api_enabled() -> bool:
     """在线 API 是否可用。"""
@@ -54,9 +78,14 @@ def is_api_enabled() -> bool:
 
 
 def ensure_dirs() -> None:
-    """确保所有数据目录存在。"""
+    """确保所有数据目录存在，并初始化空 settings.json（如果不存在）。"""
     for d in (DATA_DIR, SKILLS_DIR, CONVS_DIR):
         d.mkdir(parents=True, exist_ok=True)
+    # 首次启动时创建空白 settings.json，避免用户打开设置弹窗看到空字段
+    if not _SETTINGS_FILE.exists():
+        _SETTINGS_FILE.write_text(
+            json.dumps({}, ensure_ascii=False), encoding="utf-8"
+        )
 
 
 def validate() -> list[str]:

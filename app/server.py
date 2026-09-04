@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # ── 全局状态 ──────────────────────────────────────────────────────────────────
 _server_proc: subprocess.Popen | None = None
 _server_lock = threading.Lock()
+_llama_log_thread: threading.Thread | None = None
 
 
 def get_server_process() -> subprocess.Popen | None:
@@ -67,9 +68,14 @@ def start_server(timeout: int = 60) -> bool:
             cmd,
             cwd=str(config.ROOT_DIR / "llama"),
             creationflags=subprocess.CREATE_NO_WINDOW,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
         )
+        global _llama_log_thread
+        _llama_log_thread = threading.Thread(target=_read_llama_output, daemon=True)
+        _llama_log_thread.start()
 
         if not _wait_until_ready(timeout):
             logger.error("llama-server 启动超时")
@@ -130,6 +136,17 @@ def _kill_server() -> None:
         _server_proc = None
 
 
+def _read_llama_output() -> None:
+    """后台线程：读取 llama-server 的 stdout，输出到 Python logger。"""
+    if _server_proc is None or _server_proc.stdout is None:
+        return
+    try:
+        for line in _server_proc.stdout:
+            logger.info("[llama] " + line.rstrip())
+    except Exception:
+        pass
+
+
 # ── 状态查询 ──────────────────────────────────────────────────────────────────
 def is_running() -> bool:
     with _server_lock:
@@ -165,3 +182,9 @@ def _port_open(host: str, port: int, connect_timeout: float = 1.0) -> bool:
 def build_openai_url() -> str:
     """返回 OpenAI 兼容 API 的基础 URL，供 openai 客户端使用。"""
     return f"http://{config.LLAMA_HOST}:{config.LLAMA_PORT}/v1"
+
+
+def stop_llama_log_thread() -> None:
+    global _llama_log_thread
+    _llama_log_thread = None
+

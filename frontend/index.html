@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -56,10 +56,9 @@ input,textarea{font-family:inherit}
 /* Main */
 .main{flex:1;display:flex;flex-direction:column;height:100vh;min-width:0;background:var(--bg)}
 .main-header{height:var(--header-h);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:10px;background:var(--bg-elevated);box-shadow:var(--shadow-sm)}
-.mode-tabs{display:flex;gap:3px;background:var(--bg-subtle);padding:3px;border-radius:var(--radius-sm);flex-shrink:0}
-.tab-btn{background:none;border:none;color:var(--text-mid);font-size:12px;font-weight:500;padding:5px 14px;border-radius:8px;cursor:pointer;transition:all var(--transition);white-space:nowrap}
-.tab-btn:hover{color:var(--accent)}
-.tab-btn.active{background:var(--bg-elevated);color:var(--accent);box-shadow:var(--shadow-sm)}
+#mode-toggle-btn{background:var(--bg-subtle);border:1px solid var(--border);color:var(--text-mid);font-size:12px;padding:5px 14px;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--transition);flex-shrink:0}
+#mode-toggle-btn:hover{border-color:var(--accent-light);color:var(--accent);background:var(--accent-soft)}
+#mode-toggle-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 #current-title{font-size:14px;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #clear-chat-btn{background:var(--bg-subtle);border:1px solid var(--border);color:var(--text-mid);font-size:12px;padding:5px 14px;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--transition)}
 #clear-chat-btn:hover{border-color:var(--accent-light);color:var(--accent);background:var(--accent-soft)}
@@ -130,6 +129,15 @@ input,textarea{font-family:inherit}
 .btn-danger{background:var(--danger);color:#fff}
 .btn-danger:hover{opacity:.9}
 .btn-full{width:100%}
+
+/* Settings section */
+.settings-section{margin-bottom:20px}
+.settings-section-title{font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.settings-row{display:flex;gap:10px;align-items:center}
+.settings-row .form-input{flex:1}
+.api-status{font-size:11px;padding:3px 8px;border-radius:10px;font-weight:600}
+.api-status.on{background:rgba(76,175,80,.15);color:#4caf50}
+.api-status.off{background:rgba(158,158,158,.15);color:#9e9e9e}
 
 /* Step indicator */
 .step-indicator{display:flex;gap:6px;margin-bottom:20px}
@@ -204,6 +212,17 @@ input,textarea{font-family:inherit}
 .detail-tab.active{background:var(--bg-elevated);color:var(--accent);box-shadow:var(--shadow-sm)}
 .detail-tab-content{display:none}
 .detail-tab-content.active{display:block}
+
+/* New conversation character select */
+.char-select-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:240px;overflow-y:auto}
+.char-select-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;transition:all var(--transition);background:var(--bg)}
+.char-select-item:hover{border-color:var(--accent-light);background:var(--bg-hover)}
+.char-select-item.selected{border-color:var(--accent);background:var(--accent-glow);box-shadow:inset 3px 0 0 var(--accent)}
+.char-select-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.char-select-info{flex:1;min-width:0}
+.char-select-name{font-size:13px;font-weight:600;color:var(--text)}
+.char-select-desc{font-size:11px;color:var(--text-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.char-select-empty{color:var(--text-faint);font-size:12px;padding:8px 0}
 </style>
 </head>
 <body>
@@ -227,18 +246,16 @@ input,textarea{font-family:inherit}
 <!-- Main -->
 <div class="main">
   <div class="main-header">
-    <div class="mode-tabs">
-      <button class="tab-btn active" data-mode="chat" onclick="switchMode('chat')">Chat</button>
-      <button class="tab-btn" data-mode="skill" onclick="switchMode('skill')">Skills</button>
-    </div>
+    <button id="mode-toggle-btn" onclick="toggleSkillPanel()">角色列表</button>
     <span id="current-title">新建对话</span>
     <button id="clear-chat-btn" onclick="clearChat()">清空</button>
-    <button id="create-ex-btn" onclick="openIntakeModal()">+ 创建前任</button>
+    <button id="create-ex-btn" onclick="openIntakeModal()">+ 创建角色</button>
+    <button id="settings-btn" onclick="openSettingsModal()" title="设置">⚙</button>
   </div>
   <div class="messages" id="messages">
     <div id="empty-state">
       <div class="empty-icon">x</div>
-      <p>开始一段对话，或创建一位前任</p>
+      <p>开始一段对话，或创建一位角色</p>
     </div>
   </div>
   <div class="input-bar">
@@ -250,7 +267,7 @@ input,textarea{font-family:inherit}
 <!-- Skill Panel -->
 <div class="skill-panel collapsed" id="skill-panel">
   <div class="skill-panel-header">
-    <h3>前任 Skills</h3>
+    <h3>角色 Skills</h3>
     <button class="modal-close" onclick="toggleSkillPanel()">x</button>
   </div>
   <div class="skill-panel-body">
@@ -266,34 +283,34 @@ input,textarea{font-family:inherit}
 <div class="modal-overlay" id="intake-modal">
   <div class="modal">
     <div class="modal-header">
-      <h2 id="intake-modal-title">创建一位前任</h2>
+      <h2 id="intake-modal-title">创建一位角色</h2>
       <button class="modal-close" onclick="closeIntakeModal()">x</button>
     </div>
     <div class="modal-body">
       <div class="step-indicator">
         <div class="step-dot-wrap"><div class="step-dot active" id="step-dot-1"></div><div class="step-label">花名</div></div>
-        <div class="step-dot-wrap"><div class="step-dot" id="step-dot-2"></div><div class="step-label">简介</div></div>
-        <div class="step-dot-wrap"><div class="step-dot" id="step-dot-3"></div><div class="step-label">性格</div></div>
+        <div class="step-dot-wrap"><div class="step-dot" id="step-dot-2"></div><div class="step-label">关系背景</div></div>
+        <div class="step-dot-wrap"><div class="step-dot" id="step-dot-3"></div><div class="step-label">性格特征</div></div>
       </div>
       <div class="step-content active" id="intake-step-1">
         <div class="form-group">
           <label class="form-label">花名 / 代号</label>
-          <input class="form-input" id="intake-name" placeholder="比如：小远 / 那个谁 / moon" maxlength="50">
-          <div class="form-hint">不需要真名，昵称、备注名、代号都可以</div>
+          <input class="form-input" id="intake-name" placeholder="小远 / moon / 那个谁" maxlength="50">
+          <div class="form-hint">昵称、备注名、代号都行，不需要真名</div>
         </div>
       </div>
       <div class="step-content" id="intake-step-2">
         <div class="form-group">
-          <label class="form-label">基本信息</label>
-          <textarea class="form-textarea" id="intake-summary" placeholder="一句话介绍一下？&#10;比如：在一起两年分手半年 互联网产品经理 上海&#10;大学四年异地 毕业分的" rows="3"></textarea>
-          <div class="form-hint">可以包括：在一起多久、分手多久、做什么的、怎么认识的。跳过也行</div>
+          <label class="form-label">关系背景</label>
+          <textarea class="form-textarea" id="intake-summary" placeholder="什么关系？怎么认识的？最近还有联系吗？" rows="4"></textarea>
+          <div class="form-hint">越具体，生成的记忆越准确。可以跳过</div>
         </div>
       </div>
       <div class="step-content" id="intake-step-3">
         <div class="form-group">
-          <label class="form-label">性格画像</label>
-          <textarea class="form-textarea" id="intake-personality" placeholder="用一句话描述ta的性格？&#10;比如：ENFP 双子座 话很多 永远在社交 但深夜会突然emo&#10;INTJ 处女座 完美主义 嘴硬心软 吵架从不先低头" rows="3"></textarea>
-          <div class="form-hint">MBTI、星座、性格标签、你对ta的印象。跳过也行</div>
+          <label class="form-label">性格特征</label>
+          <textarea class="form-textarea" id="intake-personality" placeholder="ENFP / 双子座 / 话很多 / 嘴硬心软 / 吵架从不先低头" rows="4"></textarea>
+          <div class="form-hint">MBTI、星座、性格标签都可以，可以跳过</div>
         </div>
       </div>
     </div>
@@ -330,6 +347,9 @@ input,textarea{font-family:inherit}
         </div>
         <input type="file" id="analyze-file-input" accept=".txt,.html,.htm,.json,.csv,.db,.sqlite" onchange="handleFileSelect(event)">
         <div class="file-info" id="file-info" style="display:none"></div>
+      </div>
+      <div class="form-hint" id="file-mode-hint" style="display:none;background:var(--accent-soft);padding:8px 12px;border-radius:6px;font-size:12px;color:var(--accent);margin-bottom:8px">
+        ✅ 已选择文件，将先调用微信解析器处理聊天记录，再发送给模型分析。支持更大文件、更精准的结构化提取。
       </div>
       <div class="form-group">
         <label class="form-label">原始材料</label>
@@ -383,6 +403,77 @@ input,textarea{font-family:inherit}
   </div>
 </div>
 
-<script src="app.js?v=1"></script>
+<!-- New Conversation Character Select Modal -->
+<div class="modal-overlay" id="new-conv-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>新建对话</h2>
+      <button class="modal-close" onclick="closeNewConvModal()">x</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-mid);margin-bottom:14px">选择角色开始对话，或留空开启空白对话：</p>
+      <div class="char-select-list" id="new-conv-char-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-full" id="new-conv-start-btn" onclick="startNewConvWithSelection()">开始对话</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h2>设置</h2>
+      <button class="modal-close" onclick="closeSettingsModal()">x</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-section">
+        <div class="settings-section-title">在线大模型 API（仅用于已导入文件的大角色）</div>
+        <div class="form-group">
+          <label class="form-label">快捷选择服务商</label>
+          <select class="form-input" id="settings-provider" onchange="onProviderChange()">
+            <option value="">— 自定义 —</option>
+            <option value="tongyi">通义千问（阿里云）</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="openai">OpenAI</option>
+            <option value="zhipu">智谱 GLM</option>
+            <option value="moonshot">Moonshot 月之暗面</option>
+            <option value="yi">零一万物</option>
+            <option value="anthropic">Anthropic Claude</option>
+          </select>
+          <div class="form-hint">选择后自动填入 Base URL 和模型名称，也可手动修改</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Base URL</label>
+          <input class="form-input" id="settings-base-url" placeholder="https://api.openai.com/v1" />
+          <div class="form-hint">OpenAI 兼容接口地址，如通义千问、DeepSeek 等</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input class="form-input" id="settings-api-key" type="password" placeholder="sk-..." />
+          <div class="form-hint">仅保存在本地，不会上传到任何服务器</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">模型名称</label>
+          <input class="form-input" id="settings-api-model" placeholder="qwen-plus" value="qwen-plus" />
+          <div class="form-hint">如 qwen-plus、deepseek-chat、gpt-4o 等</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+          <span class="api-status off" id="api-status-badge">未启用</span>
+          <span style="font-size:11px;color:var(--text-faint)">小角色（纯描述创建）始终使用本地模型；仅"导入文件"创建的大角色会使用此 API</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSettingsModal()">取消</button>
+      <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()">保存配置</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js?v=14"></script>
 </body>
 </html>

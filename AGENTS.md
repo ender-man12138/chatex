@@ -36,7 +36,7 @@ Get-Process -Name python -ErrorAction SilentlyContinue
 
 1. 先执行清理脚本（见上方）
 2. 确认端口干净后，再启动 `main.py`
-3. 测试完毕，立即再次执行清理脚本
+3. 窗口关闭时会自动停止所有服务，无需手动清理
 4. 清理完毕后再输出反馈
 
 ---
@@ -45,9 +45,10 @@ Get-Process -Name python -ErrorAction SilentlyContinue
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| FastAPI / pywebview | 9090 | 主服务端口，固定不变 |
-| llama-server | 8848 | 推理服务端口，固定不变 |
+| FastAPI / pywebview | 9090 | 主服务端口，固定不变；窗口关闭时自动停止 |
+| llama-server | 8848 | 推理服务端口，固定不变；随窗口关闭自动停止 |
 
+**关闭窗口即停止全部服务**，不存在后台残留进程。
 任何情况下不得修改这两个端口。如遇冲突，必须彻底清理后再启动。
 
 ---

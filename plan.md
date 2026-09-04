@@ -1,4 +1,4 @@
-﻿# ChatEx — 本地离线聊天工具 技术方案
+# ChatEx — 本地离线聊天工具 技术方案
 
 ## 项目概述
 
@@ -30,24 +30,25 @@
 
 `
 chatex/                           ← 整个文件夹发给用户
-├── launcher.exe                  ← 一键启动程序（PyInstaller 打包）
-│   - 启动 llama.cpp server（后台）
-│   - 启动 FastAPI + pywebview 窗口
-│   - 窗口关闭时弹出关闭选项对话框
+├── main.py                       ← 一键启动（pywebview 窗口，关闭窗口即停止全部服务）
+│   - 在守护线程中启动 llama-server.exe
+│   - 在守护线程中启动 FastAPI
+│   - 打开 pywebview 窗口
+│   - 窗口关闭时自动停止所有服务
 ├── python/                       ← 内嵌便携版 Python 3.12（~40MB）
 │   ├── python.exe
 │   └── Lib/
 ├── venv/                         ← 项目虚拟环境（~50MB）
 │   ├── Lib/site-packages/        ← 所有依赖
 │   └── Scripts/
-├── llama-server.exe              ← 推理服务（~30MB，随包内置）
-├── main.py                       ← FastAPI 主入口
+├── llama/                        ← llama.cpp 完整发行版（~30MB）
+│   └── llama-server.exe          ← 推理服务
 ├── app/                          ← 后端代码
 ├── frontend/                     ← 前端代码
 ├── skills/
 │   └── create-ex/                ← ex-skill 工具（tools/ prompts/）
 ├── models/
-│   └── qwen3.5-2b.Q4_K_M.gguf    ← 基底模型（~1.5GB，可替换）
+│   └── qwen3-5-2B-Q4_K_M.gguf   ← 基底模型（~1.5GB，可替换）
 ├── data/                         ← 运行时数据（动态生成，gitignored）
 │   ├── conversations/
 │   └── skills/
@@ -62,7 +63,7 @@ chatex/                           ← 整个文件夹发给用户
 | Python 3.12 便携版 | ~40MB | https://python.org/ftp/python/3.12.8/python-3.12.8-embed-amd64.zip |
 | pip（嵌入后手动安装） | ~20MB | 依赖包展开大小 |
 | FastAPI + 依赖 | ~15MB | uvicorn, pydantic, openai, pywebview 等 |
-| launcher.exe（PyInstaller） | ~50-80MB | 含 Python 运行时 + 代码 |
+| main.py（可选 PyInstaller 打包） | ~50-80MB | 含 Python 运行时 + 代码 |
 | llama-server.exe | ~30MB | https://github.com/ggerganov/llama.cpp/releases |
 | Qwen3.5-2B Q4_K_M.gguf | ~1.5GB | 基底模型，可替换 |
 | **总计（不含模型）** | ~155-200MB | zip 压缩后约 100-120MB |
@@ -83,13 +84,14 @@ llama.cpp 是独立二进制工具，随项目内置分发，不需要用户单�
 
 `
 ┌──────────────────────────────────────────────┐
-│         launcher.exe（PyInstaller 打包）       │
+│              main.py                         │
 │                                              │
 │  ┌────────────────────────────────────────┐  │
 │  │  1. 检查模型文件是否存在               │  │
-│  │  2. 启动 llama.cpp server（子进程）     │  │
-│  │  3. 启动 FastAPI + pywebview（主线程）  │  │
-│  │  4. 注册窗口关闭回调：弹出关闭选项      │  │
+│  │  2. 启动 llama-server（子进程）         │  │
+│  │  3. 启动 FastAPI（守护线程）           │  │
+│  │  4. 打开 pywebview 窗口                │  │
+│  │  5. 注册窗口关闭回调：停止全部服务     │  │
 │  └────────────────────────────────────────┘  │
 │                     │                        │
 │  ┌──────────────────▼─────────────────────┐  │
@@ -99,47 +101,30 @@ llama.cpp 是独立二进制工具，随项目内置分发，不需要用户单�
 │  │  /api/import      导入聊天记录          │  │
 │  │  /api/conversations  加载/管理对话历史   │  │
 │  │  /api/config      配置读写              │  │
-│  │  /api/shutdown    停止 llama.cpp server │  │
+│  │  /api/health      健康检查              │  │
 │  └──────────────────┬─────────────────────┘  │
-│                     │ HTTP localhost:8081    │
+│                     │ HTTP localhost:9090    │
 └─────────────────────┼───────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────┐
 │       llama.cpp server（子进程）             │
 │  加载 models/{模型文件}.gguf                 │
-│  监听 localhost:8080                         │
+│  监听 localhost:8848                         │
 │  响应 OpenAI 兼容格式                        │
 │                                              │
 │  退出方式：                                  │
-│  - 用户选"完全退出" → FastAPI 调 /api/shutdown│
-│  - 用户选"关闭前端" → 仅关闭 pywebview 窗口  │
-│    llama.cpp 子进程继续运行                  │
+│  - 关闭窗口 → 自动停止所有服务（FastAPI + llama-server）│
 └──────────────────────────────────────────────┘
 `
 
 ---
 
-## launcher.exe 关闭选项逻辑
+## 窗口关闭逻辑
 
-窗口关闭时弹出对话框，提供两个选项：
+窗口关闭时直接停止全部服务，无确认弹窗：
 
-`
-┌──────────────────────────────────┐
-│  关闭聊天工具？                  │
-│                                  │
-│  □ 完全退出                      │
-│    前后端服务全部关闭            │
-│                                  │
-│  ○ 只关闭前端                    │
-│    推理服务保持运行              │
-│                                  │
-│  [ 确定 ]  [ 取消 ]              │
-└──────────────────────────────────┘
-`
-
-- **完全退出**：FastAPI 调用 /api/shutdown → 终止 llama.cpp 子进程 → 退出应用
-- **只关闭前端**：仅关闭 pywebview 窗口，llama.cpp 子进程继续运行，后台服务保持在 localhost:8080
-- **取消**：不执行任何操作，窗口保持打开
+- **关闭窗口**：FastAPI 停止 → llama-server 子进程终止 → 应用退出
+- 不存在后台残留进程
 
 ---
 
@@ -179,45 +164,30 @@ prompts/ 下的 .md 文件是给 Claude Code 读的指令，包含了工具调�
 
 `
 chatex/
-├── launcher.py                  # PyInstaller 入口：管理进程 + 关闭逻辑
-├── main.py                      # FastAPI 主入口（被 launcher.py 调用）
+├── main.py                      # pywebview 一键启动：FastAPI + llama-server + 窗口，关闭窗口即停止全部服务
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                  # FastAPI 实例创建
 │   ├── config.py                # 配置管理（模型路径、端口、对话历史上限等）
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── chat.py              # 聊天接口
-│   │   ├── skills.py            # Skill CRUD
-│   │   ├── import_.py           # 聊天记录导入（调用 wechat_parser.py）
-│   │   ├── conversations.py     # 对话历史列表/加载/删除
-│   │   └── shutdown.py          # 停止 llama.cpp server
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── llm.py               # llama.cpp API 调用封装
-│   │   ├── skill_builder.py     # Skill 文件生成（调用适配版 prompts）
-│   │   ├── conversation.py      # 对话历史 JSON 读写
-│   │   └── prompt_adapter.py    # ex-skill prompts 的适配转换
-│   └── models/
+│   ├── server.py                # llama-server 子进程管理（启动/停止/日志）
+│   ├── skill_engine.py          # Skill 核心逻辑（LLM 调用、对话构建）
+│   └── routers/
 │       ├── __init__.py
-│       └── schemas.py           # Pydantic 数据模型
+│       ├── chat.py              # 聊天接口
+│       ├── skills_new.py        # Skill CRUD
+│       ├── file_import.py       # 聊天记录导入（调用 wechat_parser.py）
+│       ├── health.py            # 健康检查
+│       └── _client.py           # OpenAI 兼容 API 客户端封装
 ├── frontend/
 │   ├── index.html               # 主页面
-│   ├── css/
-│   │   └── style.css
-│   └── js/
-│       ├── app.js               # 前端逻辑
-│       └── api.js               # API 封装
+│   ├── app.js                   # 前端逻辑
+│   └── diagnose.html            # 诊断页
 ├── data/
 │   ├── conversations/           # JSON 对话文件（按 slug 分目录）
-│   │   └── {slug}/
-│   │       ├── conv_001.json
-│   │       └── conv_002.json
 │   └── skills/                  # Skill 定义文件
 │       └── {slug}/
 │           ├── persona.md       # 人格画像
 │           ├── memory.md        # 关系记忆
-│           ├── SKILL.md         # 可运行指令
+│           ├── profile.md       # 用户画像
 │           └── meta.json        # 元数据
 ├── skills/
 │   └── create-ex/               # ex-skill 完整复制（只取 tools/ 用）
@@ -227,13 +197,11 @@ chatex/
 │       │   ├── skill_writer.py
 │       │   └── version_manager.py
 │       └── prompts/             # 原始 prompts（仅作参考，不直接使用）
+├── llama/                       # llama.cpp 完整发行版（gitignored）
 ├── python/                      # 内嵌 Python 3.12（gitignored）
 ├── venv/                        # 虚拟环境（gitignored）
-├── llama-server.exe             # 推理服务（gitignored）
 ├── models/                      # 存放 .gguf 模型文件（gitignored）
 ├── requirements.txt
-├── pyproject.toml
-├── setup.py                     # PyInstaller 打包配置
 └── README.md
 `
 
@@ -351,8 +319,8 @@ messages = [{role: "user", content: 用户消息}]
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
 | MODEL_PATH | models/qwen3.5-2b-Q4_K_M.gguf | 模型文件路径 |
-| LLAMA_PORT | 8080 | llama.cpp server 监听端口 |
-| APP_PORT | 8081 | FastAPI 监听端口 |
+| LLAMA_PORT | 8848 | llama.cpp server 监听端口 |
+| APP_PORT | 9090 | FastAPI + pywebview 监听端口 |
 | MAX_HISTORY | 20 | 每次对话最多携带的历史消息数 |
 | DATA_DIR | data/ | 数据根目录 |
 | SKILLS_DIR | data/skills/ | Skill 文件目录 |
@@ -362,12 +330,12 @@ messages = [{role: "user", content: 用户消息}]
 
 ## 错误处理与回退
 
-- **llama.cpp 未启动**：launcher.exe 启动时检测端口，若未就绪则等待或提示用户
+- **llama.cpp 未启动**：main.py 启动时检测端口，若未就绪则等待或提示用户
 - **模型加载失败**：记录错误日志，提示用户检查模型路径
 - **对话历史过大**：自动截断最早的消息，保留最近的 MAX_HISTORY 条
 - **Skill 创建中断**：已生成的中间文件保留，支持断点续传式继续
 - **文件解析失败**：显示具体错误信息，允许重新选择文件
-- **窗口关闭时服务已停止**：弹窗提示"推理服务未运行，是否重新启动？"
+- **窗口关闭时服务已停止**：关闭窗口即触发全部停止，无额外弹窗
 
 ---
 
@@ -423,27 +391,27 @@ pip install -r requirements.txt
 ### 第五步：启动开发
 
 `powershell
-python launcher.py
+python main.py
 `
 
 ---
 
-## 打包步骤
+## 打包步骤（可选）
+
+`main.py` 目前可直接 `python main.py` 启动，无需打包。若需分发可执行文件，可用 PyInstaller：
 
 `powershell
 # 1. 激活虚拟环境
 .\venv\Scripts\activate
 
-# 2. 打包 launcher
+# 2. 打包
 pyinstaller --onefile --windowed ^
   --name ChatEx ^
   --add-data "frontend;frontend" ^
   --add-data "app;app" ^
-  --add-data "skills/create-ex;skills/create-ex" ^
-  launcher.py
+  main.py
 
-# 3. 输出位置：dist/ChatEx.exe
-# 4. 复制到项目根目录，重命名为 launcher.exe
+# 3. 输出位置：dist\ChatEx.exe
 `
 
 ---
@@ -456,7 +424,7 @@ pyinstaller --onefile --windowed ^
 
 `
 ChatEx/
-├── launcher.exe          ← PyInstaller 打包的一键启动程序
+├── main.py             ← 一键启动程序（关闭窗口即停止全部服务）
 ├── python/               ← 内嵌便携版 Python 3.12
 ├── venv/                 ← 虚拟环境（含所有依赖）
 ├── llama-server.exe      ← 推理服务
@@ -477,7 +445,7 @@ ChatEx/
 
 由于含模型的分发包超过 1GB，建议采用**两段式分发**：
 
-1. **主程序包**（~100MB）：launcher.exe + Python 环境 + llama-server + 代码
+1. **主程序包**（~100MB）：main.py + Python 环境 + llama.cpp + 代码
 2. **模型包**（~1.5GB）：单独提供下载链接，用户自行放入 models/ 目录
 
 主程序包通过 GitHub Release 或码云发布；模型包提供百度网盘/阿里云盘链接，适合国内用户下载。
@@ -486,10 +454,10 @@ ChatEx/
 
 ## 发行说明（README 需包含）
 
-- 双击 launcher.exe 即可启动
+- 双击 main.py 即可启动
 - 模型文件需放入 models/ 目录（可使用内置基底模型）
 - 完全离线运行，不上传任何数据
-- 关闭窗口时可选择：完全退出 / 只关闭前端（推理服务保持运行）
+- 关闭窗口即停止全部服务，无后台残留
 
 ---
 
@@ -502,8 +470,8 @@ ChatEx/
 5. 实现基础聊天接口（无 Skill，验证 llama.cpp 连通）
 6. 实现 Skill 创建向导（含 A/B 两种方案）
 7. 实现对话历史管理（JSON 读写、截断、列表）
-8. 实现前端聊天界面 + 关闭确认对话框
-9. PyInstaller 打包 launcher.exe
+8. 实现前端聊天界面 + 新建对话角色选择弹窗
+9. PyInstaller 打包（可选）
 10. 内嵌 Python + 完整打包测试
 
 ---

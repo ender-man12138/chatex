@@ -93,12 +93,8 @@ SYSTEM_PROMPT = (
 
 
 def _strip_thinking(text: str) -> str:
-    """Remove thinking tags from model output (compatible with multiple formats)."""
-    text = re.sub(r"\s*<\\think>\s*", " ", text)
-    text = re.sub(r"\s*<\\finish>\s*", " ", text)
-    text = re.sub(r"\s*<\?think\?>\s*", " ", text)
-    text = re.sub(r"\s*<\?finish\?>\s*", " ", text)
-    return text.strip()
+    """Remove thinking tags from model output."""
+    return re.sub(r"<think(?:ing)?\b.*?</think(?:ing)?>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
 
 
 @router.post("/chat", response_model=ChatResponse)

@@ -239,12 +239,18 @@ def run_list_skills(base_dir: str) -> list[dict]:
             if s.is_dir() and m.exists():
                 try:
                     data = json.loads(m.read_text(encoding="utf-8"))
+                    skill_md = s / "skill.md"
+                    memory_md = s / "memory.md"
+                    persona_md = s / "persona.md"
                     skills.append({
                         "slug": s.name, "name": data.get("name", s.name),
                         "version": data.get("version", "v0"),
                         "created_at": data.get("created_at", ""),
                         "updated_at": data.get("updated_at", ""),
                         "profile": data.get("profile", {}),
+                        "has_skill": skill_md.exists(),
+                        "has_memory": memory_md.exists(),
+                        "has_persona": persona_md.exists(),
                     })
                 except Exception:
                     pass
