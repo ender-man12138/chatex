@@ -57,7 +57,12 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 
 function autoResize(){$input.style.height='auto';$input.style.height=Math.min($input.scrollHeight,120)+'px';}
 
-function formatAiContent(text){if(!text)return'';return escHtml(text).replace(/<think(?:ing)?\b>[\s\S]*?<\/think(?:ing)?>/gi,'').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');}
+function formatAiContent(text){
+  if(!text)return'';
+  text=text.replace(/<think(?:ing)?\b>[\s\S]*?<\/think(?:ing)?>/gi,'');
+  text=text.replace(/\n{3,}/g,'\n\n');
+  return escHtml(text).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+}
 
 
 
@@ -191,14 +196,20 @@ function selectNewConvChar(slug){
   document.querySelectorAll('#new-conv-char-list .char-select-item').forEach(el=>{
     el.classList.toggle('selected',el.dataset.slug===slug);
   });
+  // 选择角色后立即预览角色详情
+  if(slug) loadSkillDetail(slug);
 }
 async function startNewConvWithSelection(){
   closeNewConvModal();
   currentConvId=null;$title.textContent='新建对话';
   $messages.innerHTML='';$messages.appendChild($empty);$empty.style.display='';
   if(newConvSelectedSlug&&newConvSelectedSlug!==currentSkillSlug){
-    currentSkillSlug=newConvSelectedSlug;toggleSkillPanel();
-  }else{currentSkillSlug=null;}
+    await selectSkill(newConvSelectedSlug);
+    showToast('已切换到角色：'+(currentSkillSlug||''));
+  }else{
+    currentSkillSlug=null;
+    showToast('新建空白对话');
+  }
   document.querySelectorAll('.conv-item').forEach(el=>el.classList.remove('active'));
 }
 
@@ -320,16 +331,16 @@ async function selectSkill(slug){
 
   document.querySelectorAll('.skill-card').forEach(el=>{el.classList.toggle('active',el.dataset.slug===slug);});
 
-  await loadSkillDetail(slug);
+  const data=await loadSkillDetail(slug);
+
+  if(data){showToast('已切换到角色：'+(data.name||slug));}
 
 }
 
 async function loadSkillDetail(slug){
-
-  try{const resp=await fetch(API+'/api/skills/'+slug);if(!resp.ok)return;renderSkillDetail(await resp.json());}
-
-  catch(e){console.error('loadSkillDetail error',e);}
-
+  try{
+    const resp=await fetch(API+'/api/skills/'+slug);if(!resp.ok)return null;const data=await resp.json();renderSkillDetail(data);return data;
+  }catch(e){console.error('loadSkillDetail error',e);return null;}
 }
 
 function renderSkillDetail(s){
@@ -348,7 +359,7 @@ function renderSkillDetail(s){
 
   $panel.innerHTML=
 
-    '<div class="skill-detail-header"><div class="skill-detail-avatar">'+escHtml(initial)+'</div><div class="skill-detail-info"><div class="skill-detail-name">'+escHtml(s.name||s.slug)+'</div><div class="skill-detail-summary">'+escHtml(s.profile?.summary||'暂无简介')+'</div><div class="skill-detail-version">创建人: '+s.created_at?.slice(0,10)+' v'+s.version+' <span class="skill-card-source '+(s.source==="import"?"cloud":"local")+'">'+(s.source==="import"?"API":"本地")+'</span></div></div></div>'+
+    '<div class="skill-detail-header"><div class="skill-detail-avatar">'+escHtml(initial)+'</div><div class="skill-detail-info"><div class="skill-detail-name">'+escHtml(s.name||s.slug)+'</div><div class="skill-detail-summary">'+escHtml(s.profile?.summary||'暂无简介')+'</div><div class="skill-detail-version">创建人: '+s.created_at?.slice(0,10)+' v'+s.version+' <span class="skill-card-source '+(s.source==="import"?"cloud":"local")+'">'+(s.source==="import"?"在线模型":"本地模型")+'</span></div></div></div>'+
 
     '<div class="skill-detail-actions">'+
 
@@ -495,9 +506,34 @@ async function intakeNextStep(){
     if(!resp.ok){const e=await resp.json().catch(()=>({}));showToast('创建失败：'+e.detail);return;}
     const data=await resp.json();intakeSlug=data.slug;
 
-    closeIntakeModal();showToast('「'+intakeData.name+'」创建完成！');
+    const autoMaterial=[intakeData.summary,intakeData.personality].filter(Boolean).join('\n\n').trim();
+
+    if(autoMaterial){
+      showToast('正在生成角色关系与性格，请稍候...');
+      const createBtn=document.getElementById('intake-next-btn');
+      const prevCreateText=createBtn.textContent;
+      createBtn.disabled=true;createBtn.textContent='生成中...';
+
+      try{
+        await fetch(API+'/api/skills/'+intakeSlug+'/analyze-memory',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({raw_material:autoMaterial,source_type:'text'})
+        });
+      }catch(err){
+        console.error('auto analyze failed',err);
+        showToast('角色创建成功，但自动分析失败，请稍后手动分析');
+      }
+
+      createBtn.disabled=false;createBtn.textContent=prevCreateText;
+    }
+
     await loadSkills();selectSkill(intakeSlug);
-    setTimeout(()=>openAnalyzeModal(intakeSlug),500);return;
+    await loadSkillDetail(intakeSlug);
+
+    closeIntakeModal();
+    showToast('「'+intakeData.name+'」角色生成完成！');
+
+    setTimeout(()=>openAnalyzeModal(intakeSlug),300);return;
 
   }
 
@@ -626,7 +662,11 @@ async function runAnalyzeCurrent(){
       document.getElementById('prog-1').querySelector('span:last-child').textContent='分析关系记忆...';
     }
 
-    if(!rawMaterial){showToast('请提供原始材料');btn.disabled=false;btn.textContent='开始分析';return;}
+    if(analyzeSource==='text'){
+      if(!rawMaterial){
+        rawMaterial='[无材料，仅基于角色简介与性格做轻量分析]';
+      }
+    }else if(!rawMaterial){showToast('请提供原始材料');btn.disabled=false;btn.textContent='开始分析';return;}
 
     const memResp=await fetch(API+'/api/skills/'+analyzeSlug+'/analyze-memory',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -781,7 +821,7 @@ async function saveSettings(){
     });
     const data = await resp.json();
     if(!resp.ok) throw new Error(data.detail || '保存失败');
-    _settingsCache = { enabled: data.enabled, base_url: baseUrl, api_model, api_key_display: apiKey ? apiKey.slice(0,4)+'****' : '' };
+    _settingsCache = { enabled: data.enabled, base_url: baseUrl, api_model: apiModel, api_key_display: apiKey ? apiKey.slice(0,4)+'****' : '' };
     updateApiStatusBadge(data.enabled);
     showToast(data.message || '配置已保存');
     closeSettingsModal();

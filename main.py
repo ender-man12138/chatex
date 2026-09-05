@@ -109,7 +109,7 @@ def main():
         js_api=_DummyJsApi(),
     )
     window.events.closing += _on_window_closing
-    webview.start(debug=False)
+    webview.start(debug=True)
 
 
 class _DummyJsApi:

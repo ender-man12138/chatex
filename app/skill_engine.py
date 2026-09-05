@@ -248,6 +248,7 @@ def run_list_skills(base_dir: str) -> list[dict]:
                         "created_at": data.get("created_at", ""),
                         "updated_at": data.get("updated_at", ""),
                         "profile": data.get("profile", {}),
+                        "source": data.get("source", "text"),
                         "has_skill": skill_md.exists(),
                         "has_memory": memory_md.exists(),
                         "has_persona": persona_md.exists(),

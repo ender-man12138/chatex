@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from app import config
 from app.server import build_openai_url, is_ready
-from app.routers._client import get_llm_client, get_model_name
+from app.routers._client import get_llm_client, get_model_name, get_extra_body
 from app.skill_engine import (
     build_analyze_prompt,
     build_memory_prompt,
@@ -171,77 +171,89 @@ async def create_skill(req: CreateReq) -> dict:
     return {"slug": slug, "status": "created", "name": req.name}
 
 
-@router.post("/analyze")
-async def analyze_skill_both(slug: str, req: AnalyzeReq) -> dict:
-    """执行 Skill 分析（memory + persona 两步）。"""
-    if not _meta_path(slug).exists():
-        raise HTTPException(status_code=404, detail=f"Skill 不存在: {slug}")
-    if not is_ready():
-        raise HTTPException(status_code=503, detail="推理服务未就绪")
-
-    meta = json.loads(_meta_path(slug).read_text(encoding="utf-8"))
-    name = meta.get("name", slug)
-    profile = meta.get("profile", {})
-    summary = profile.get("summary", "")
-    personality = profile.get("personality", "")
-
-    prompt = build_memory_prompt(
-        name=name,
-        summary=summary,
-        personality=personality,
-        raw_material=req.raw_material,
-        source_type=req.source_type,
-    )
-
-    client = get_llm_client(slug)
-    try:
-        response = await client.chat.completions.create(
-            model=get_model_name(slug),
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-        )
-        memory_content = response.choices[0].message.content or ""
-    except Exception as e:
-        logger.error(f"Memory analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=f"分析失败: {e}")
-
-    (skill_dir := _skill_dir(slug)) / "memory.md".write_text(
-        memory_content, encoding="utf-8"
-    )
-
-    prompt2 = build_persona_prompt(
-        name=name,
-        summary=summary,
-        personality=personality,
-        raw_material=req.raw_material,
-        source_type=req.source_type,
-    )
-
-    try:
-        response2 = await client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": prompt2}],
-            temperature=0.3,
-        )
-        persona_content = response2.choices[0].message.content or ""
-    except Exception as e:
-        logger.error(f"Persona analysis failed: {e}")
-        persona_content = f"# {name} 的人物性格\n\n[分析失败，请手动编辑]"
-
-    (skill_dir / "persona.md").write_text(persona_content, encoding="utf-8")
-
-    meta["updated_at"] = datetime.now().isoformat(timespec="seconds")
-    meta["profile"]["summary"] = summary
-    (skill_dir / "meta.json").write_text(
-        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-    return {
-        "slug": slug,
-        "status": "analyzed",
-        "memory_length": len(memory_content),
-        "persona_length": len(persona_content),
-    }
+# @router.post("/analyze")
+# async def analyze_skill_both(slug: str, req: AnalyzeReq) -> dict:
+#     """执行 Skill 分析（memory + persona 两步）。"""
+#     if not _meta_path(slug).exists():
+#         raise HTTPException(status_code=404, detail=f"Skill 不存在: {slug}")
+#     if not is_ready():
+#         raise HTTPException(status_code=503, detail="推理服务未就绪")
+#
+#     meta = json.loads(_meta_path(slug).read_text(encoding="utf-8"))
+#     name = meta.get("name", slug)
+#     profile = meta.get("profile", {})
+#     summary = profile.get("summary", "")
+#     personality = profile.get("personality", "")
+#
+#     prompt = build_memory_prompt(
+#         name=name,
+#         summary=summary,
+#         personality=personality,
+#         raw_material=req.raw_material,
+#         source_type=req.source_type,
+#     )
+#
+#     client = get_llm_client(slug)
+#     try:
+#         response = await client.chat.completions.create(
+#             model=get_model_name(slug),
+#             messages=[{"role": "user", "content": prompt}],
+#             temperature=0.3,
+#             extra_body=get_extra_body(slug),
+#         )
+#         memory_content = _strip_thinking(response.choices[0].message.content or "")
+#     except Exception as e:
+#         logger.error(f"Memory analysis failed: {e}")
+#         raise HTTPException(status_code=500, detail=f"分析失败: {e}")
+#
+#     skill_dir = _skill_dir(slug)
+#     skill_dir.joinpath("memory.md").write_text(
+#         memory_content, encoding="utf-8"
+#     )
+#
+#     prompt2 = build_persona_prompt(
+#         name=name,
+#         summary=summary,
+#         personality=personality,
+#         raw_material=req.raw_material,
+#         source_type=req.source_type,
+#     )
+#
+#     try:
+#         response2 = await client.chat.completions.create(
+#             model=get_model_name(slug, has_material=has_material),
+#             messages=[{"role": "user", "content": prompt2}],
+#             temperature=0.3,
+#             extra_body=get_extra_body(slug, has_material=has_material),
+#         )
+#         persona_content = _strip_thinking(response2.choices[0].message.content or "")
+#     except Exception as e:
+#         logger.error(f"Persona analysis failed: {e}")
+#         persona_content = f"# {name} 的人物性格\n\n[分析失败，请手动编辑]"
+#
+#     (skill_dir / "persona.md").write_text(persona_content, encoding="utf-8")
+#
+#     meta["updated_at"] = datetime.now().isoformat(timespec="seconds")
+#     meta["profile"]["summary"] = summary
+#     (skill_dir / "meta.json").write_text(
+#         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+#     )
+#
+#     if has_material:
+#         try:
+#             run_combine_skill(str(config.SKILLS_DIR), slug)
+#             skill_md = skill_dir / "SKILL.md"
+#             if skill_md.exists():
+#                 skill_md.rename(skill_dir / "skill.md")
+#         except Exception as e:
+#             logger.warning(f"combine skill failed: {e}")
+#
+#     return {
+#         "slug": slug,
+#         "status": "analyzed",
+#         "memory_length": len(memory_content),
+#         "persona_length": len(persona_content),
+#     }
 
 
 @router.get("/{slug}")
@@ -265,6 +277,7 @@ async def get_skill(slug: str) -> dict:
         "created_at": meta.get("created_at", ""),
         "updated_at": meta.get("updated_at", ""),
         "profile": meta.get("profile", {}),
+        "source": meta.get("source", "text"),
         "has_skill": bool(skill_md),
         "has_memory": bool(memory),
         "has_persona": bool(persona),
@@ -312,8 +325,9 @@ async def merge_material(slug: str, req: MergeReq) -> dict:
             model=get_model_name(slug),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
+            extra_body=get_extra_body(slug),
         )
-        merged_content = response.choices[0].message.content or ""
+        merged_content = _strip_thinking(response.choices[0].message.content or "")
     except Exception as e:
         logger.error(f"Merge failed: {e}")
         raise HTTPException(status_code=500, detail=f"合并失败: {e}")
@@ -373,21 +387,7 @@ async def run_skill(slug: str, req: SkillRunReq) -> dict:
     client = get_llm_client(slug)
     conv_id = req.conversation_id or uuid.uuid4().hex[:12]
 
-    try:
-        response = await client.chat.completions.create(
-            model=get_model_name(slug),
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": req.message},
-            ],
-            temperature=0.7,
-        )
-        reply = response.choices[0].message.content or ""
-    except Exception as e:
-        logger.error(f"Skill run failed: {e}")
-        raise HTTPException(status_code=500, detail=f"对话失败: {e}")
-
-    title = req.message[:30] + ("..." if len(req.message) > 30 else "")
+    # 加载历史消息
     conv_path = config.CONVS_DIR / f"{conv_id}.json"
     if conv_path.exists():
         try:
@@ -397,6 +397,28 @@ async def run_skill(slug: str, req: SkillRunReq) -> dict:
             messages = []
     else:
         messages = []
+
+    # 截断历史，避免超出上下文窗口
+    if len(messages) > config.MAX_HISTORY:
+        messages = messages[-config.MAX_HISTORY:]
+
+    try:
+        response = await client.chat.completions.create(
+            model=get_model_name(slug),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                *messages,
+                {"role": "user", "content": req.message},
+            ],
+            temperature=0.7,
+            extra_body=get_extra_body(slug),
+        )
+        reply = _strip_thinking(response.choices[0].message.content or "")
+    except Exception as e:
+        logger.error(f"Skill run failed: {e}")
+        raise HTTPException(status_code=500, detail=f"对话失败: {e}")
+
+    title = req.message[:30] + ("..." if len(req.message) > 30 else "")
     messages.append({"role": "user", "content": req.message})
     messages.append({"role": "assistant", "content": reply})
     conv_path.write_text(
@@ -453,8 +475,9 @@ async def correct_via_llm(slug: str, req: CorrectionLLMReq) -> dict:
             model=get_model_name(slug),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
+            extra_body=get_extra_body(slug),
         )
-        result_text = response.choices[0].message.content or ""
+        result_text = _strip_thinking(response.choices[0].message.content or "")
         result = json.loads(result_text)
     except Exception as e:
         logger.error(f"LLM correction failed: {e}")
@@ -554,8 +577,20 @@ async def import_file(slug: str, file: UploadFile = File(...), source_type: str 
 # ── 辅助函数 ───────────────────────────────────────────────────────────────────
 
 def _strip_thinking(text: str) -> str:
-    """移除模型输出中的思维标签。"""
-    return re.sub(r"<think(?:ing)?\b.*?</think(?:ing)?>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+    """移除模型输出中的思维标签，并清理多余空行。"""
+    text = re.sub(r"<think(?:ing)?\b.*?</think(?:ing)?>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    lines = text.split("\n")
+    cleaned = []
+    blank_count = 0
+    for line in lines:
+        if line.strip() == "":
+            blank_count += 1
+            if blank_count <= 1:
+                cleaned.append("")
+        else:
+            blank_count = 0
+            cleaned.append(line)
+    return "\n".join(cleaned).strip()
 
 # ── 前端兼容性端点 ──────────────────────────────────────────────────────────────
 
@@ -647,13 +682,15 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
+            extra_body=get_extra_body(slug),
         )
-        memory_content = response.choices[0].message.content or ""
+        memory_content = _strip_thinking(response.choices[0].message.content or "")
     except Exception as e:
         logger.error(f"Memory analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"分析失败: {e}")
 
-    (skill_dir := _skill_dir(slug)) / "memory.md".write_text(
+    skill_dir = _skill_dir(slug)
+    skill_dir.joinpath("memory.md").write_text(
         memory_content, encoding="utf-8"
     )
 
@@ -667,11 +704,12 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
 
     try:
         response2 = await client.chat.completions.create(
-            model=model_name,
+            model=get_model_name(slug, has_material=has_material),
             messages=[{"role": "user", "content": prompt2}],
             temperature=0.3,
+            extra_body=get_extra_body(slug, has_material=has_material),
         )
-        persona_content = response2.choices[0].message.content or ""
+        persona_content = _strip_thinking(response2.choices[0].message.content or "")
     except Exception as e:
         logger.error(f"Persona analysis failed: {e}")
         persona_content = f"# {name} 的人物性格\n\n[分析失败，请手动编辑]"
@@ -683,6 +721,25 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
     (skill_dir / "meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+
+    # 只有 import 路径才生成 SKILL.md 并升级角色
+    if req.source_type == "import":
+        try:
+            run_combine_skill(str(config.SKILLS_DIR), slug)
+            skill_md = skill_dir / "SKILL.md"
+            if skill_md.exists():
+                skill_md.rename(skill_dir / "skill.md")
+                meta_path = skill_dir / "meta.json"
+                try:
+                    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                    meta["source"] = "import"
+                    meta_path.write_text(
+                        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+                    )
+                except Exception as e:
+                    logger.warning(f"update source failed: {e}")
+        except Exception as e:
+            logger.warning(f"combine skill failed: {e}")
 
     return {
         "slug": slug,
