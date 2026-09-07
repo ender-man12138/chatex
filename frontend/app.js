@@ -147,9 +147,23 @@ async function switchConv(id){
     currentSkillSlug=skillSlug;
     toggleSkillPanel();
 
-  }
+    // 动态获取角色花名，不直接显示 slug
+    let skillName=skillSlug;
+    try{
+      const sr=await fetch(API+'/api/skills/'+skillSlug);
+      if(sr.ok){
+        const sdata=await sr.json();
+        skillName=sdata.name||skillSlug;
+      }
+    }catch(e){console.error('load skill name failed',e);}
 
-  $title.textContent=data.title||'对话';
+    $title.textContent='正在与「'+skillName+'」对话';
+
+  }else if(!skillSlug){
+
+    $title.textContent=data.title||'对话';
+
+  }
 
   renderMessages(data.messages||[]);
 
@@ -333,7 +347,12 @@ async function selectSkill(slug){
 
   const data=await loadSkillDetail(slug);
 
-  if(data){showToast('已切换到角色：'+(data.name||slug));}
+  if(data){
+    showToast('已切换到角色：'+(data.name||slug));
+    $title.textContent='正在与「'+(data.name||slug)+'」对话';
+  }else{
+    $title.textContent='新建对话';
+  }
 
 }
 
@@ -409,17 +428,23 @@ function switchDetailTab(tab,el){
 
 }
 
-function startSkillChat(slug){
+async function startSkillChat(slug){
 
   currentSkillSlug=slug;
 
   const badge=document.getElementById('skill-tag-badge');if(badge)badge.remove();
 
-  const b=document.createElement('span');b.id='skill-tag-badge';
+  // 动态获取角色花名，不直接显示 slug
+  let skillName=slug;
+  try{
+    const r=await fetch(API+'/api/skills/'+slug);
+    if(r.ok){
+      const data=await r.json();
+      skillName=data.name||slug;
+    }
+  }catch(e){console.error('load skill name failed',e);}
 
-  b.style.cssText='font-size:11px;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:4px;white-space:nowrap;margin-left:8px;';
-
-  b.textContent='skill: '+slug;$title.appendChild(b);
+  $title.textContent='正在与「'+skillName+'」对话';
 
   document.querySelectorAll('.conv-item').forEach(el=>el.classList.remove('active'));
 

@@ -108,6 +108,8 @@ def main():
         resizable=True,
         js_api=_DummyJsApi(),
     )
+    window.events.loaded += lambda: _set_window_icon(str(config.ROOT_DIR / "frontend" / "icon" / "icon_double_hearts.ico"), delay=True)
+    window.events.shown += lambda: _set_window_icon(str(config.ROOT_DIR / "frontend" / "icon" / "icon_double_hearts.ico"), delay=True)
     window.events.closing += _on_window_closing
     webview.start(debug=True)
 
@@ -115,6 +117,69 @@ def main():
 class _DummyJsApi:
     """供 pywebview 注册的空 JS API，暂无功能接口。"""
     pass
+
+
+def _set_window_icon(icon_path: str, delay: bool = False) -> None:
+    """Windows 下通过 Win32 API 设置窗口图标。"""
+    import ctypes
+    from ctypes import wintypes
+
+    def _apply() -> None:
+        user32 = ctypes.windll.user32
+        gdi32 = ctypes.windll.gdi32
+
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+        LR_LOADFROMFILE = 0x00000010
+        GCL_HICON = -14
+        GCL_HICONSM = -34
+
+        hicon = user32.LoadImageW(
+            0,
+            icon_path,
+            1,  # IMAGE_ICON
+            0,
+            0,
+            LR_LOADFROMFILE,
+        )
+        if not hicon:
+            logger.warning("加载窗口图标失败: %s", icon_path)
+            return
+
+        top_windows = []
+
+        @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def _enum_callback(hwnd, _):
+            if user32.IsWindowVisible(hwnd):
+                length = 512
+                buf = ctypes.create_unicode_buffer(length)
+                user32.GetWindowTextW(hwnd, buf, length)
+                title = buf.value
+                if "ChatEx" in title or not title:
+                    top_windows.append(hwnd)
+            return True
+
+        user32.EnumWindows(_enum_callback, 0)
+
+        for hwnd in top_windows:
+            user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon)
+            user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon)
+
+            user32.SetClassLongPtrW(hwnd, GCL_HICON, hicon)
+            user32.SetClassLongPtrW(hwnd, GCL_HICONSM, hicon)
+
+    if delay:
+        try:
+            import time
+            time.sleep(0.25)
+        except Exception:
+            pass
+
+    try:
+        _apply()
+    except Exception as e:
+        logger.warning("设置窗口图标失败: %s", e)
 
 
 if __name__ == "__main__":
