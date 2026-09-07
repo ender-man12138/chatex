@@ -5,6 +5,7 @@ ChatEx FastAPI 主应用入口。
 from __future__ import annotations
 
 import logging
+import sys
 import threading
 from contextlib import asynccontextmanager
 
@@ -77,6 +78,11 @@ def _on_window_closing():
 
 def main():
     """启动 FastAPI + pywebview 窗口；关闭窗口即停止全部服务。"""
+    # 打包成 exe 后隐藏控制台窗口
+    if getattr(sys, 'frozen', False):
+        import ctypes
+        ctypes.windll.kernel32.FreeConsole()
+    
     host, port = "127.0.0.1", config.APP_PORT
     url = f"http://{host}:{port}"
 
@@ -111,7 +117,7 @@ def main():
     window.events.loaded += lambda: _set_window_icon(str(config.ROOT_DIR / "frontend" / "icon" / "icon_double_hearts.ico"), delay=True)
     window.events.shown += lambda: _set_window_icon(str(config.ROOT_DIR / "frontend" / "icon" / "icon_double_hearts.ico"), delay=True)
     window.events.closing += _on_window_closing
-    webview.start(debug=True)
+    webview.start(debug=False)
 
 
 class _DummyJsApi:
