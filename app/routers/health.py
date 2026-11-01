@@ -1,7 +1,7 @@
 """
 统一健康检查端点。
 
-同时检测 llama-server（本地推理）和 FastAPI（本服务）是否就绪，
+检测 FastAPI（本服务）是否就绪，以及外接在线 API 是否已配置，
 供前端 checkServer() 查询状态用。
 """
 
@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from fastapi import APIRouter
 
-from app.server import is_ready as llama_is_ready
+from app import config
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
@@ -18,9 +18,11 @@ router = APIRouter(tags=["health"])
 
 @router.get("/api/health")
 async def health() -> dict:
-    llama_ok = llama_is_ready()
+    api_ready = config.is_api_configured()
     return {
-        "status": "ok" if llama_ok else "degraded",
-        "llama": "ready" if llama_ok else "not_ready",
+        "status": "ok" if api_ready else "degraded",
         "fastapi": "ok",
+        "api_ready": api_ready,
+        "api_model": config.API_MODEL,
+        "api_base_url": config.API_BASE_URL,
     }

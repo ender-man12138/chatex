@@ -1,7 +1,9 @@
 """
-llama-server 子进程管理模块。
+[已废弃] llama-server 子进程管理模块。
 
-负责启停 llama-server.exe，并处理进程守护、健康检查、优雅关闭。
+本地推理已废弃，统一使用外接在线大模型 API。
+本模块保留仅为向后兼容（file_import.py 等旧代码可能 import 此模块）。
+新的入口与运行流程均不再调用 start_server / stop_server。
 """
 
 from __future__ import annotations
@@ -29,61 +31,14 @@ def get_server_process() -> subprocess.Popen | None:
     return _server_proc
 
 
-# ── 启动 ──────────────────────────────────────────────────────────────────────
+# ── 启动（已废弃：本地推理不再使用）─────────────────────────────────────────
 def start_server(timeout: int = 60) -> bool:
     """
-    启动 llama-server.exe（后台进程），等待其就绪。
-    timeout：最长等待秒数，超时返回 False。
+    [已废弃] 本地 llama-server 已停用，此函数不应再被调用。
+    保留仅为向后兼容，直接返回 False。
     """
-    global _server_proc
-
-    with _server_lock:
-        if _server_proc is not None and _server_proc.poll() is None:
-            logger.info("llama-server 已在运行")
-            return True
-
-        server_exe = config.ROOT_DIR / "llama" / "llama-server.exe"
-        if not server_exe.exists():
-            logger.error(f"找不到 llama-server.exe: {server_exe}")
-            return False
-
-        cmd = [
-            str(server_exe),
-            "-m", str(config.MODEL_PATH),
-            "--host", config.LLAMA_HOST,
-            "--port", str(config.LLAMA_PORT),
-            "--ctx-size", str(config.CTX_SIZE),
-            "--threads", str(config.THREADS),
-            "--n-predict", str(config.N_PREDICT),
-            "--cache-type-k", config.CACHE_TYPE_K,
-            "--cache-type-v", config.CACHE_TYPE_V,
-            "--reasoning-format", config.REASONING_FORMAT,
-        ]
-        if not config.ENABLE_THINKING:
-            cmd += ["--chat-template-kwargs", '{"enable_thinking":false}']
-
-        logger.info("正在启动 llama-server …")
-        # CREATE_NO_WINDOW 隐藏 CMD 弹窗；shell=False 避免系统默认 shell
-        _server_proc = subprocess.Popen(
-            cmd,
-            cwd=str(config.ROOT_DIR / "llama"),
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        )
-        global _llama_log_thread
-        _llama_log_thread = threading.Thread(target=_read_llama_output, daemon=True)
-        _llama_log_thread.start()
-
-        if not _wait_until_ready(timeout):
-            logger.error("llama-server 启动超时")
-            _kill_server()
-            return False
-
-        logger.info(f"llama-server 已就绪（port={config.LLAMA_PORT}）")
-        return True
+    logger.warning("start_server 已废弃：本地推理已停用")
+    return False
 
 
 def _wait_until_ready(timeout: int) -> bool:
@@ -97,36 +52,16 @@ def _wait_until_ready(timeout: int) -> bool:
     return False
 
 
-# ── 停止 ──────────────────────────────────────────────────────────────────────
+# ── 停止（已废弃：本地推理不再使用）─────────────────────────────────────────
 def stop_server(wait: bool = True, timeout: int = 5) -> bool:
     """
-    停止 llama-server。
-    wait=True 时阻塞直到进程退出或超时。
+    [已废弃] 本地 llama-server 已停用，此函数不应再被调用。
+    保留仅为向后兼容，直接返回 True（无进程需要停止）。
     """
-    global _server_proc
-
-    with _server_lock:
-        proc = _server_proc
-        if proc is None:
-            return True
-
-        if proc.poll() is not None:
-            _server_proc = None
-            return True
-
-        logger.info("正在停止 llama-server …")
-        _server_proc = None
-        proc.terminate()
-
-        if wait:
-            try:
-                proc.wait(timeout=timeout)
-                return True
-            except subprocess.TimeoutExpired:
-                logger.warning("llama-server 未在 {}s 内退出，强制杀死".format(timeout))
-                proc.kill()
-                return False
-        return True
+    logger.warning("stop_server 已废弃：本地推理已停用")
+    _server_proc = None
+    _llama_log_thread = None
+    return True
 
 
 def _kill_server() -> None:
@@ -147,24 +82,15 @@ def _read_llama_output() -> None:
         pass
 
 
-# ── 状态查询 ──────────────────────────────────────────────────────────────────
+# ── 状态查询（已废弃：本地推理不再使用）─────────────────────────────────────
 def is_running() -> bool:
-    with _server_lock:
-        if _server_proc is None:
-            return False
-        if _server_proc.poll() is not None:
-            return False
-        return _port_open(config.LLAMA_HOST, config.LLAMA_PORT, connect_timeout=0.3)
+    """[已废弃] 本地 llama-server 已停用，始终返回 False。"""
+    return False
 
 
 def is_ready() -> bool:
-    """健康检查：能否连上 llama-server 的 /health 端点。"""
-    url = f"http://{config.LLAMA_HOST}:{config.LLAMA_PORT}/health"
-    try:
-        r = requests.get(url, timeout=2)
-        return r.status_code == 200
-    except Exception:
-        return False
+    """[已废弃] 本地 llama-server 已停用，始终返回 False。"""
+    return False
 
 
 # ── 工具函数 ──────────────────────────────────────────────────────────────────

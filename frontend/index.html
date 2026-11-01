@@ -217,6 +217,11 @@ input,textarea{font-family:inherit}
 .detail-tab-content{display:none}
 .detail-tab-content.active{display:block}
 
+/* API config banner */
+.api-config-banner{display:none;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--bg-subtle);border-bottom:1px solid var(--border);font-size:12px;color:var(--text-mid);gap:12px}
+.api-config-banner-btn{padding:4px 12px;border-radius:var(--radius-sm);background:linear-gradient(135deg,var(--accent) 0%,var(--accent-light) 100%);color:#fff;font-size:11px;font-weight:600;cursor:pointer;border:none;flex-shrink:0;transition:all var(--transition)}
+.api-config-banner-btn:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(176,108,179,.3)}
+
 /* New conversation character select */
 .char-select-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:240px;overflow-y:auto}
 .char-select-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;transition:all var(--transition);background:var(--bg)}
@@ -437,7 +442,7 @@ input,textarea{font-family:inherit}
     </div>
     <div class="modal-body">
       <div class="settings-section">
-        <div class="settings-section-title">在线大模型 API（仅用于已导入文件的大角色）</div>
+        <div class="settings-section-title">在线大模型 API</div>
         <div class="form-group">
           <label class="form-label">快捷选择服务商</label>
           <select class="form-input" id="settings-provider" onchange="onProviderChange()">
@@ -467,14 +472,15 @@ input,textarea{font-family:inherit}
           <input class="form-input" id="settings-api-model" placeholder="qwen-plus" value="qwen-plus" />
           <div class="form-hint">如 qwen-plus、deepseek-chat、gpt-4o 等</div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-          <span class="api-status off" id="api-status-badge">未启用</span>
-          <span style="font-size:11px;color:var(--text-faint)">小角色（纯描述创建）始终使用本地模型；仅"导入文件"创建的大角色会使用此 API</span>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap">
+          <span class="api-status off" id="api-status-badge">未配置</span>
+          <span style="font-size:11px;color:var(--text-faint)">所有对话与分析均通过此 API 完成，需先通过"测试连接"才能使用</span>
         </div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeSettingsModal()">取消</button>
+      <button class="btn btn-secondary" id="settings-test-btn" onclick="testApiConnection()">测试连接</button>
       <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()">保存配置</button>
     </div>
   </div>

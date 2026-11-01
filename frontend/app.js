@@ -15,6 +15,19 @@ let newConvSelectedSlug=null;
 
 let currentSkillSlug=null;
 
+// 在线 API 配置状态（由 checkServer / openSettingsModal 更新）
+let apiConfigured=false,apiConfigChecked=false;
+
+function updateApiConfigState(cfg){apiConfigured=!!cfg;apiConfigChecked=true;updateApiConfigBanner();}
+
+// 未配置 API 时调用：弹出提示并引导跳转到设置界面
+function promptApiConfig(){
+  if(!apiConfigChecked||apiConfigured)return true;
+  showToast('正确配置 API Key 后才能使用',2500);
+  openSettingsModal();
+  return false;
+}
+
 let intakeStep=1,intakeData={name:'',summary:'',personality:''},intakeSlug=null;
 
 let analyzeSlug=null,analyzeSource='text',analyzeFile=null;
@@ -78,7 +91,16 @@ async function checkServer(){
 
     clearTimeout(_t);
 
-    if(r.ok){const d=await r.json();$dot.className='ok';$statusText.textContent=d.llama==='ready'?'后端已连接':'后端运行中(llama未就绪)';}
+    if(r.ok){
+      const d=await r.json();
+      $dot.className='ok';
+      updateApiConfigState(d.api_ready);
+      if(d.api_ready){
+        $statusText.textContent='后端已连接 · '+(d.api_model||'在线API');
+      }else{
+        $statusText.textContent='后端已连接 · API未配置';
+      }
+    }
 
     else{$dot.className='';$statusText.textContent='后端未连接';}
 
@@ -279,6 +301,9 @@ async function sendMessage(){
 
   const text=$input.value.trim();if(!text||isStreaming)return;
 
+  // 未配置 API 时不发送，提示并跳转配置界面
+  if(!promptApiConfig())return;
+
   $input.value='';autoResize();
 
   appendMessage('user',text);setSendState(true);
@@ -473,6 +498,9 @@ async function deleteSkill(slug){
 /* ━━ Intake Wizard ━━*/
 
 function openIntakeModal(){
+
+  // 未配置 API 时不允许创建角色，提示并跳转配置界面
+  if(!promptApiConfig())return;
 
   intakeStep=1;intakeData={name:'',summary:'',personality:''};intakeSlug=null;
 
@@ -799,11 +827,15 @@ async function openSettingsModal(){
     const resp = await fetch(API + '/api/settings');
     const data = await resp.json();
     _settingsCache = data;
+    updateApiConfigState(!!data.enabled);
     document.getElementById('settings-base-url').value = data.base_url || '';
-    document.getElementById('settings-api-key').value = '';
+    // key 仅回显占位提示，避免明文返回；若已有保存的 key 提示用户重新输入
+    const keyInput = document.getElementById('settings-api-key');
+    keyInput.value = '';
+    keyInput.placeholder = data.api_key_display ? ('已保存 ' + data.api_key_display + '，可留空保持原 key') : '请输入 API Key';
     document.getElementById('settings-api-model').value = data.api_model || 'qwen-plus';
     document.getElementById('settings-provider').value = '';
-    updateApiStatusBadge(data.enabled);
+    updateApiStatusBadge(!!data.enabled);
   } catch(e) { console.error('load settings failed', e); }
 }
 
@@ -822,12 +854,55 @@ function onProviderChange(){
 
 function updateApiStatusBadge(enabled){
   const badge = document.getElementById('api-status-badge');
-  if(enabled){
-    badge.className = 'api-status on';
-    badge.textContent = '已启用';
-  } else {
-    badge.className = 'api-status off';
-    badge.textContent = '未启用';
+  if(badge){
+    badge.className = 'api-status '+(enabled?'on':'off');
+    badge.textContent = enabled ? '已配置' : '未配置';
+  }
+}
+
+// 未配置 API 时在页面顶部显示引导横幅（不锁死界面）
+function updateApiConfigBanner(){
+  let banner=document.getElementById('api-config-banner');
+  if(!apiConfigured){
+    if(!banner){
+      banner=document.createElement('div');
+      banner.id='api-config-banner';
+      banner.className='api-config-banner';
+      banner.innerHTML='<span>尚未配置在线大模型 API，对话与创建角色功能需先配置。</span><button class="api-config-banner-btn" onclick="openSettingsModal()">去配置</button>';
+      const main=document.querySelector('.main');
+      if(main){main.insertBefore(banner,main.children[1]||null);}
+    }
+    banner.style.display='flex';
+  }else{
+    if(banner)banner.style.display='none';
+  }
+}
+
+async function testApiConnection(){
+  const baseUrl = document.getElementById('settings-base-url').value.trim();
+  const apiKey = document.getElementById('settings-api-key').value.trim();
+  const apiModel = document.getElementById('settings-api-model').value.trim();
+  const btn = document.getElementById('settings-test-btn');
+  if(btn){btn.disabled=true;btn.textContent='测试中…';}
+  try{
+    const resp = await fetch(API + '/api/settings/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_base_url: baseUrl, api_key: apiKey, api_model: apiModel })
+    });
+    const data = await resp.json();
+    if(data.success){
+      showToast('连接成功：模型响应正常');
+      _settingsCache = { enabled: true, base_url: baseUrl, api_model: apiModel, api_key_display: apiKey ? apiKey.slice(0,4)+'****' : '' };
+      updateApiConfigState(true);
+      updateApiStatusBadge(true);
+    } else {
+      showToast('连接失败：'+(data.error||'未知错误'));
+    }
+  } catch(err){
+    showToast('连接测试失败：'+err.message);
+  } finally {
+    if(btn){btn.disabled=false;btn.textContent='测试连接';}
   }
 }
 
@@ -839,6 +914,22 @@ async function saveSettings(){
   btn.disabled = true;
   btn.textContent = '保存中…';
   try {
+    // 严格测试：三项配置缺一不可，必须连通并返回正确才允许保存
+    if(!baseUrl || !apiKey || !apiModel){
+      showToast('请填写完整的 Base URL、API Key 和模型名');
+      return;
+    }
+    const testResp = await fetch(API + '/api/settings/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_base_url: baseUrl, api_key: apiKey, api_model: apiModel })
+    });
+    const testData = await testResp.json();
+    if(!testData.success){
+      showToast('连接测试失败：'+(testData.error||'无法连通模型，请检查配置'));
+      return;
+    }
+    // 测试通过后再保存
     const resp = await fetch(API + '/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -846,9 +937,10 @@ async function saveSettings(){
     });
     const data = await resp.json();
     if(!resp.ok) throw new Error(data.detail || '保存失败');
-    _settingsCache = { enabled: data.enabled, base_url: baseUrl, api_model: apiModel, api_key_display: apiKey ? apiKey.slice(0,4)+'****' : '' };
-    updateApiStatusBadge(data.enabled);
-    showToast(data.message || '配置已保存');
+    _settingsCache = { enabled: true, base_url: baseUrl, api_model: apiModel, api_key_display: apiKey ? apiKey.slice(0,4)+'****' : '' };
+    updateApiConfigState(true);
+    updateApiStatusBadge(true);
+    showToast('配置保存成功，可开始使用');
     closeSettingsModal();
   } catch(err){
     showToast('保存失败：'+err.message);

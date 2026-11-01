@@ -1,0 +1,20 @@
+{
+  "kind": "webpage_snapshot",
+  "url": "https://docs.trae.ai/ide/rules?_lang=zh",
+  "final_url": "https://docs.trae.ai/ide/rules?_lang=zh",
+  "status": 200,
+  "read_status": "empty",
+  "content_type": "text/html; charset=utf-8",
+  "fetched_at": "2026-11-01T10:12:33.907372900+00:00",
+  "title": "规则（Rule） - 文档 - TRAE",
+  "description": "",
+  "site_name": null,
+  "published_at": null,
+  "source_type": "documentation",
+  "text": "",
+  "quote_candidates": [],
+  "word_count": 0,
+  "truncated": false,
+  "blocked": false,
+  "source": "direct_http"
+}

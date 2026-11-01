@@ -24,8 +24,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
 from app import config
-from app.server import build_openai_url, is_ready
-from app.routers._client import get_llm_client, get_model_name, get_extra_body
+from app.routers._client import get_online_client, get_online_model, get_extra_body
 from app.skill_engine import (
     build_analyze_prompt,
     build_memory_prompt,
@@ -47,6 +46,24 @@ router = APIRouter(prefix="/api/skills", tags=["skills"])
 
 
 # ── 路径辅助 ───────────────────────────────────────────────────────────────────
+
+def _require_online_api() -> None:
+    """要求在线 API 已配置，否则抛出 428，提示用户先配置。"""
+    if not config.is_api_configured():
+        raise HTTPException(
+            status_code=428,
+            detail="请先正确配置 API Key 后才能使用",
+        )
+
+
+def _get_online_client_or_raise() -> AsyncOpenAI:
+    """获取在线客户端；未配置时抛出 428 门控错误。"""
+    _require_online_api()
+    client = get_online_client()
+    if client is None:
+        raise HTTPException(status_code=428, detail="请先正确配置 API Key 后才能使用")
+    return client
+
 
 def _skill_dir(slug: str) -> Path:
     return config.SKILLS_DIR / slug
@@ -123,6 +140,7 @@ class CorrectionLLMReq(BaseModel):
 @router.post("")
 async def create_skill(req: CreateReq) -> dict:
     """创建新 Skill（兼容 create-ex 格式）。"""
+    _require_online_api()
     slug = req.name.lower().replace(" ", "-").replace("/", "-")
     slug = re.sub(r"[^a-z0-9\-]", "", slug)
     if not slug:
@@ -300,8 +318,7 @@ async def merge_material(slug: str, req: MergeReq) -> dict:
     """增量合并新材料到 Skill。"""
     if not _meta_path(slug).exists():
         raise HTTPException(status_code=404, detail=f"Skill 不存在: {slug}")
-    if not is_ready():
-        raise HTTPException(status_code=503, detail="推理服务未就绪")
+    _require_online_api()
 
     meta = json.loads(_meta_path(slug).read_text(encoding="utf-8"))
     name = meta.get("name", slug)
@@ -319,22 +336,24 @@ async def merge_material(slug: str, req: MergeReq) -> dict:
         layer=req.layer,
     )
 
-    client = get_llm_client(slug)
+    client = _get_online_client_or_raise()
     try:
         response = await client.chat.completions.create(
-            model=get_model_name(slug),
+            model=get_online_model(),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
-            extra_body=get_extra_body(slug),
+            extra_body=get_extra_body(),
         )
         merged_content = _strip_thinking(response.choices[0].message.content or "")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Merge failed: {e}")
         raise HTTPException(status_code=500, detail=f"合并失败: {e}")
 
     target_path.write_text(merged_content, encoding="utf-8")
     meta["updated_at"] = datetime.now().isoformat(timespec="seconds")
-    (skill_dir := _skill_dir(slug)) / "meta.json".write_text(
+    _meta_path(slug).write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
@@ -348,8 +367,7 @@ async def run_skill(slug: str, req: SkillRunReq) -> dict:
     """使用 Skill 上下文运行对话。"""
     if not _meta_path(slug).exists():
         raise HTTPException(status_code=404, detail=f"Skill 不存在: {slug}")
-    if not is_ready():
-        raise HTTPException(status_code=503, detail="推理服务未就绪")
+    _require_online_api()
 
     meta = json.loads(_meta_path(slug).read_text(encoding="utf-8"))
     name = meta.get("name", slug)
@@ -384,7 +402,7 @@ async def run_skill(slug: str, req: SkillRunReq) -> dict:
 
     system_prompt = "\n".join(system_parts)
 
-    client = get_llm_client(slug)
+    client = _get_online_client_or_raise()
     conv_id = req.conversation_id or uuid.uuid4().hex[:12]
 
     # 加载历史消息
@@ -404,16 +422,18 @@ async def run_skill(slug: str, req: SkillRunReq) -> dict:
 
     try:
         response = await client.chat.completions.create(
-            model=get_model_name(slug),
+            model=get_online_model(),
             messages=[
                 {"role": "system", "content": system_prompt},
                 *messages,
                 {"role": "user", "content": req.message},
             ],
             temperature=0.7,
-            extra_body=get_extra_body(slug),
+            extra_body=get_extra_body(),
         )
         reply = _strip_thinking(response.choices[0].message.content or "")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Skill run failed: {e}")
         raise HTTPException(status_code=500, detail=f"对话失败: {e}")
@@ -427,6 +447,7 @@ async def run_skill(slug: str, req: SkillRunReq) -> dict:
             "title": title,
             "created_at": datetime.now().isoformat(timespec="seconds"),
             "updated_at": datetime.now().isoformat(timespec="seconds"),
+            "skill_slug": slug,
             "messages": messages,
         }, ensure_ascii=False, indent=2),
         encoding="utf-8"
@@ -459,8 +480,7 @@ async def correct_via_llm(slug: str, req: CorrectionLLMReq) -> dict:
     """LLM 自动识别纠偏需求。"""
     if not _meta_path(slug).exists():
         raise HTTPException(status_code=404, detail=f"Skill 不存在: {slug}")
-    if not is_ready():
-        raise HTTPException(status_code=503, detail="推理服务未就绪")
+    _require_online_api()
 
     prompt = build_analyze_prompt(
         name=slug,
@@ -469,16 +489,18 @@ async def correct_via_llm(slug: str, req: CorrectionLLMReq) -> dict:
         raw_material=req.message,
     )
 
-    client = get_llm_client(slug)
+    client = _get_online_client_or_raise()
     try:
         response = await client.chat.completions.create(
-            model=get_model_name(slug),
+            model=get_online_model(),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
-            extra_body=get_extra_body(slug),
+            extra_body=get_extra_body(),
         )
         result_text = _strip_thinking(response.choices[0].message.content or "")
         result = json.loads(result_text)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"LLM correction failed: {e}")
         return {"slug": slug, "is_correction": False, "message": "识别失败"}
@@ -603,6 +625,7 @@ class IntakeReq(BaseModel):
 @router.post("/intake")
 async def intake_create(req: IntakeReq) -> dict:
     """Intake 创建端点（兼容前端三步式 intake 流程）。"""
+    _require_online_api()
     slug = req.name.lower().replace(" ", "-").replace("/", "-")
     slug = re.sub(r"[^a-z0-9\-]", "", slug)
     if not slug:
@@ -655,8 +678,7 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
     """分析 memory 层（前端独立调用，复用 analyze_skill 逻辑）。"""
     if not _meta_path(slug).exists():
         raise HTTPException(status_code=404, detail=f"Skill 不存在: {slug}")
-    if not is_ready():
-        raise HTTPException(status_code=503, detail="推理服务未就绪")
+    _require_online_api()
 
     meta = json.loads(_meta_path(slug).read_text(encoding="utf-8"))
     name = meta.get("name", slug)
@@ -664,10 +686,8 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
     summary = profile.get("summary", "")
     personality = profile.get("personality", "")
 
-    # 有材料 → 路径B（外部大模型），无材料 → 路径A（本地小模型）
-    has_material = bool(req.raw_material.strip())
-    client = get_llm_client(slug, has_material=has_material)
-    model_name = get_model_name(slug, has_material=has_material)
+    client = _get_online_client_or_raise()
+    model_name = get_online_model()
 
     prompt = build_memory_prompt(
         name=name,
@@ -682,9 +702,11 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
-            extra_body=get_extra_body(slug),
+            extra_body=get_extra_body(),
         )
         memory_content = _strip_thinking(response.choices[0].message.content or "")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Memory analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"分析失败: {e}")
@@ -704,10 +726,10 @@ async def analyze_memory(slug: str, req: AnalyzeReq) -> dict:
 
     try:
         response2 = await client.chat.completions.create(
-            model=get_model_name(slug, has_material=has_material),
+            model=model_name,
             messages=[{"role": "user", "content": prompt2}],
             temperature=0.3,
-            extra_body=get_extra_body(slug, has_material=has_material),
+            extra_body=get_extra_body(),
         )
         persona_content = _strip_thinking(response2.choices[0].message.content or "")
     except Exception as e:

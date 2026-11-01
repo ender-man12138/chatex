@@ -1,5 +1,9 @@
 """
 ChatEx FastAPI 主应用入口。
+
+模型调用说明：
+  本地推理（llama-server）已废弃，统一使用外接在线大模型 API。
+  用户首次使用需在"设置"中配置 API 并通过严格测试连接后方可对话。
 """
 
 from __future__ import annotations
@@ -16,7 +20,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app import config
-from app.server import start_server, stop_server
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL.upper()),
@@ -29,11 +32,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("ChatEx 启动中...")
     config.ensure_dirs()
-    if not start_server(timeout=60):
-        logger.error("llama-server 启动失败")
+    # 本地 llama-server 已废弃，不再拉起子进程
     yield
     logger.info("ChatEx 关闭中...")
-    stop_server(wait=True)
 
 
 app = FastAPI(
@@ -72,8 +73,7 @@ async def root():
 def _on_window_closing():
     """窗口关闭时停止所有服务。"""
     logger.info("前端窗口关闭，正在停止服务...")
-    stop_server(wait=True)
-    logger.info("所有服务已停止。")
+    logger.info("所有服务已停止（本地推理已废弃，无 llama-server 子进程需要关闭）。")
 
 
 def main():

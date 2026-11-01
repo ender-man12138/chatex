@@ -2,6 +2,10 @@
 ChatEx routing module for chat endpoints.
 Provides /api/chat (send message) and /api/conversations (conversation management).
 Conversation history is stored as JSON files in data/conversations/.
+
+模型调用说明：
+  本地推理已废弃，统一使用外接在线大模型 API。
+  未配置 API（base_url + key + model 齐备）时，发送对话返回 428 门控错误。
 """
 
 from __future__ import annotations
@@ -18,7 +22,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
 from app import config
-from app.server import build_openai_url, is_ready
+from app.routers._client import get_online_client, get_online_model, get_extra_body
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +63,8 @@ def _load_conversation(conversation_id: str) -> list[dict]:
         return []
 
 
-def _save_conversation(conversation_id: str, title: str, messages: list[dict]) -> None:
+def _save_conversation(conversation_id: str, title: str, messages: list[dict],
+                       skill_slug: str | None = None) -> None:
     now = datetime.now().isoformat(timespec="seconds")
     path = _conv_path(conversation_id)
     created_at = now
@@ -67,15 +72,20 @@ def _save_conversation(conversation_id: str, title: str, messages: list[dict]) -
         try:
             old = json.loads(path.read_text(encoding="utf-8"))
             created_at = old.get("created_at", now)
+            # 保留既有的 skill_slug（若存在），否则用本次传入的
+            if "skill_slug" in old:
+                skill_slug = old.get("skill_slug") or skill_slug
         except Exception:
             pass
-    data = {
+    data: dict = {
         "id": conversation_id,
         "title": title,
         "created_at": created_at,
         "updated_at": now,
         "messages": messages,
     }
+    if skill_slug:
+        data["skill_slug"] = skill_slug
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -85,10 +95,19 @@ def _truncate_messages(messages: list[dict]) -> list[dict]:
     return messages[-config.MAX_HISTORY:]
 
 
+def _require_online_api() -> None:
+    """未配置 API 时抛出 428，提示用户先配置。"""
+    if not config.is_api_configured():
+        raise HTTPException(
+            status_code=428,
+            detail="请先正确配置 API Key 后才能使用",
+        )
+
+
 SYSTEM_PROMPT = (
-    "You are a local chat assistant named ChatEx. "
-    "You run entirely on the user'\''s local device and do not upload any data. "
-    "Please answer the user'\''s questions in a concise and friendly manner."
+    "You are a chat assistant named ChatEx. "
+    "You use an external large model via API to answer questions. "
+    "Please answer the user's questions in a concise and friendly manner."
 )
 
 
@@ -111,25 +130,23 @@ def _strip_thinking(text: str) -> str:
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
-    if not is_ready():
-        raise HTTPException(status_code=503, detail="Inference service not ready, check llama-server")
+    _require_online_api()
+    client = get_online_client()
+    if client is None:
+        raise HTTPException(status_code=428, detail="请先正确配置 API Key 后才能使用")
 
     conv_id = req.conversation_id or uuid.uuid4().hex[:12]
     messages = _load_conversation(conv_id)
     messages.append({"role": "user", "content": req.message})
     api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + _truncate_messages(messages)
 
-    client = AsyncOpenAI(base_url=build_openai_url(), api_key="not-needed")
     try:
         stream = await client.chat.completions.create(
-            model="qwen3.5-2b",
+            model=get_online_model(),
             messages=api_messages,
             stream=True,
             temperature=0.7,
-            extra_body={
-                "chat_template_kwargs": {"enable_thinking": False},
-                "reasoning_effort": "off",
-            },
+            extra_body=get_extra_body(),
         )
         parts: list[str] = []
         async for chunk in stream:
